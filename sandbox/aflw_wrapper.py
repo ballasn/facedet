@@ -1,4 +1,4 @@
-from emotiw.common.datasets.faces.aflw import AFLW
+from aflw import AFLW
 import numpy as np
 from faceimages import FaceImagesDataset
 import os.path
