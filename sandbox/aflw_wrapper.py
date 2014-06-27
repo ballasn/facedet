@@ -8,6 +8,9 @@ import random
 class AFLWrapper(AFLW):
     """
     Wrapper for AFLW dataset
+    Intends to make it easy to deal with the dataset.
+    One of the main issue is that the data is made of ipilimage.
+    So, it is transformed into nparrays.
     """
     def __init__(self):
         # super __init__ uses the .db file
@@ -89,7 +92,16 @@ class AFLWIterator():
             self._next_batch_no += 1
             return data
 
+def transform():
+
+    d = AFLWrapper()
+    ex = np.asarray(d[0].original_image[:,:])
+    data = np.empty((len(d),ex.shape[0],ex.shape[1],3))
+    for e in d:
+        e = np.asarray(d[0].original_image[:,:])
+         
 if __name__=="__main__":
+    """
     print "-"*30
     d = AFLWrapper()
     print d,len(d)
@@ -99,3 +111,5 @@ if __name__=="__main__":
     print type(mat)
     print mat[0][:4]
     print "-"*30
+    """
+    transform()
