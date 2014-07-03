@@ -31,19 +31,25 @@ class faceDataset(dataset.Dataset):
                  which_set,
                  ratio=0.8,
                  axes = ('b', 0, 1, 'c')):
-
+        """
+        Instantiates a handle to the face dataset
+        -----------------------------------------
+        positive_samples : path to the npy file of + samples
+        negative_samples : path to the npy file of - samples
+        The current ratio is 0.8 => train 80%, test 20%
+        """
 
         if which_set == 'train':
             self.positives =  np.load(positive_samples)
-            nb_train = int(np.ceil(ratio * positives.shape[0]))
+            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives = self.positives[0:nb_train, :]
 
             self.negatives =  np.load(negative_samples)
-            nb_train = int(np.ceil(ratio * negatives.shape[0]))
+            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives = self.negatives[0:nb_train, :]
         elif which_set == 'valid':
             self.positives =  np.load(positive_samples)
-            nb_train = int(np.ceil(ratio * positives.shape[0]))
+            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives = self.positives[nb_train:self.positives.shape[0], :]
 
 
@@ -180,7 +186,7 @@ class FaceIterator:
             data,
             self._cur_pos,
             self._cur_neg =  self._dataset.get_minibatch(self._cur_pos,
-                                                         self._cur_neg
+                                                         self._cur_neg,
                                                          self._batch_size,
                                                          self._data_specs,
                                                          self._return_tuple)
@@ -188,7 +194,10 @@ class FaceIterator:
 
 
 
-
+if __name__=="__main__":
+    pos = "/data/lisatmp3/ballasn/facedet/positives.npy"
+    neg = "/data/lisatmp3/ballasn/facedet/negatives.npy"
+    fd = faceDataset(pos,neg,"train")
 
 
 
