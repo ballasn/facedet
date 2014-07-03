@@ -135,7 +135,7 @@ class FaceIterator:
                  data_specs=False, return_tuple=False, rng=None):
 
         self._dataset = dataset
-        self._dataset_size = len(dataset.nb_examples)
+        self._dataset_size = dataset.nb_examples
 
         # Validate the inputs
         assert dataset is not None
@@ -164,8 +164,8 @@ class FaceIterator:
         self._cur_pos = 0
         self._cur_neg = 0
 
-        self._num_pos = self._dataset.positives.shapes[0]
-        self._num_neg = self._dataset.negatives.shapes[0]
+        self._num_pos = self._dataset.positives.shape[0]
+        self._num_neg = self._dataset.negatives.shape[0]
 
         self._return_tuple = return_tuple
         self._data_specs = data_specs
@@ -183,13 +183,9 @@ class FaceIterator:
             print self._num_batches
             raise StopIteration()
         else:
-            data,
-            self._cur_pos,
-            self._cur_neg =  self._dataset.get_minibatch(self._cur_pos,
-                                                         self._cur_neg,
-                                                         self._batch_size,
-                                                         self._data_specs,
-                                                         self._return_tuple)
+            data,self._cur_pos,self._cur_neg = \
+            self._dataset.get_minibatch(self._cur_pos, self._cur_neg, \
+                      self._batch_size, self._data_specs, self._return_tuple)
             return data
 
 
@@ -197,7 +193,16 @@ class FaceIterator:
 if __name__=="__main__":
     pos = "/data/lisatmp3/ballasn/facedet/positives.npy"
     neg = "/data/lisatmp3/ballasn/facedet/negatives.npy"
+    print "instantiating dataset"
     fd = faceDataset(pos,neg,"train")
-
+    print "Done, now the iterator"
+    print type(fd)
+    fi = FaceIterator(dataset=fd,batch_size = 10)
+    print "next()"
+    fi.next()
+    print "next()"
+    fi.next()
+    print "next()"
+    fi.next()
 
 
