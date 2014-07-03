@@ -3,7 +3,8 @@ import numpy as np
 from faceimages import FaceImagesDataset
 import os.path
 import random
-
+from PIL import Image
+import cv2
 
 class AFLWrapper(AFLW):
     """
@@ -95,11 +96,21 @@ class AFLWIterator():
 def transform():
 
     d = AFLWrapper()
-    ex = np.asarray(d[0].original_image[:,:])
-    data = np.empty((len(d),ex.shape[0],ex.shape[1],3))
-    for e in d:
-        e = np.asarray(d[0].original_image[:,:])
-         
+    nb_images=len(d)
+    for i in xrange(0,99999):
+        ex = np.asarray(d[i].original_image[:,:])
+        cv2.imshow("im",ex)
+        print "q to quit, any other key to pass"
+        choice = cv2.waitKey(0)
+        print choice
+        if choice == 113:  #q
+            print "Let's stop here"
+            break
+        cv2.destroyWindow("im")
+        if i == nb_images:
+            break
+        else:
+            print i
 if __name__=="__main__":
     """
     print "-"*30
