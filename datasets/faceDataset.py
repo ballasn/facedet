@@ -29,14 +29,15 @@ class faceDataset(dataset.Dataset):
                  positive_samples,
                  negative_samples,
                  which_set,
-                 ratio=0.8,
-                 axes = ('b', 0, 1, 'c')):
+                 ratio = 0.8,
+                 batch_size = 128,
+                 axes = ('c', 0, 1, 'b')):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
         positive_samples : path to the npy file of + samples
         negative_samples : path to the npy file of - samples
-        The current ratio is 0.8 => train 80%, test 20%
+        The current ratio is 0.8 => train 80%, valid 20%
         """
 
         if which_set == 'train':
@@ -54,9 +55,29 @@ class faceDataset(dataset.Dataset):
 
 
             self.negatives =  np.load(negative_samples)
-            nb_train = int(np.ceil(ratio * negatives.shape[0]))
+            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives = self.negatives[nb_train:self.negatives.shape[0], :]
 
+        ### duplicate last line to have nb_pos and nb_neg divisible by batch_size/2
+        batch_size = batch_size / 2
+        self.nb_pos = self.positives.shape[0]
+        self.nb_neg = self.negatives.shape[0]
+
+        if (self.nb_pos % batch_size != 0):
+            to_add = batch_size - self.nb_pos % batch_size
+            for k in range(0, to_add):
+                self.positives = np.append(self.positives, 
+                                           self.positives[-1, :].reshape(1, self.positives.shape[1]),
+                                           axis=0)
+        if (self.nb_neg % batch_size != 0):
+            to_add = batch_size - self.nb_neg % batch_size
+            for k in range(0, to_add):
+                self.negatives = np.append(self.negatives,
+                                           self.negatives[-1, :].reshape(1, self.negatives.shape[1]),
+                                           axis=0)
+
+
+        self.img_shape = [48, 48, 3]
         self.nb_examples = self.positives.shape[0] + self.negatives.shape[0]
         self.which_set = which_set
         self.axes = axes
@@ -78,7 +99,6 @@ class faceDataset(dataset.Dataset):
         nb_pos = int(np.random.rand() * minibatch_size)
         nb_neg = minibatch_size - nb_pos
 
-        ### Check boundary FIXME verify
         ### nb_examples must be divisible by minibatch_size
         if (cur_negatives + nb_neg >= self.negatives.shape[0]):
             nb_neg = self.negatives.shape[0] - cur_negatives
@@ -88,12 +108,14 @@ class faceDataset(dataset.Dataset):
             nb_neg =  minibatch_size - nb_pos
 
         ### Fill minibatch
-        x = self.positives[cur_positives:cur_positives+nb_pos, :]
-        y[cur_positives:cur_positives+nb_pos, :] = 1
-        x = self.negatives[cur_negatives:cur_negatives+nb_neg, :]
-        y[cur_negatives:cur_negatives+nb_neg, :] = 0
+        x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
+        y[0:nb_pos, :] = 1
+        x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_negatives:cur_negatives+nb_neg, :]
+        y[nb_pos:nb_pos+nb_neg, :] = 0
 
 
+        x = np.reshape(x, [minibatch_size] + self.img_shape)
+        x = np.swapaxes(x, 0, 3)
         cur_positives += nb_pos
         cur_negatives += nb_neg
         return (x, y), cur_positives, cur_negatives
@@ -163,6 +185,7 @@ class FaceIterator:
         self._num_batches = int(num_batches)
         self._cur_pos = 0
         self._cur_neg = 0
+        self.stochastic = False
 
         self._num_pos = self._dataset.positives.shape[0]
         self._num_neg = self._dataset.negatives.shape[0]

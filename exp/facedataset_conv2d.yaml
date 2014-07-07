@@ -1,8 +1,9 @@
 !obj:pylearn2.train.Train {
     dataset: &train !obj:facedet.datasets.faceDataset.faceDataset {
         which_set: 'train',
-        positive_samples: '/data/lisatmp3/ballasn/facedet/positives.npy',
-        negative_samples: '/data/lisatmp3/ballasn/facedet/negatives.npy'
+        positive_samples: '/state/partition1/ballasn/facedet/positives.npy',
+        negative_samples: '/state/partition1/ballasn/facedet/negatives.npy',
+        axes: ['c', 0, 1, 'b']
     },
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 128,
@@ -18,7 +19,7 @@
                      irange: .005,
                      max_kernel_norm: .9,
                  },
-                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      layer_name: 'h1',
                      pad: 3,
                      num_channels: 48,
@@ -43,7 +44,7 @@
                  !obj:pylearn2.models.mlp.Softmax {
                      max_col_norm: 1.9365,
                      layer_name: 'y',
-                     n_classes: 10,
+                     n_classes: 2,
                      irange: .005
                  }
                 ],
@@ -65,8 +66,9 @@
 
                 'valid' : !obj:facedet.datasets.faceDataset.faceDataset {
                         which_set: 'valid',
-                        positive_samples: '/data/lisatmp3/ballasn/facedet/positives.npy',
-                        negative_samples: '/data/lisatmp3/ballasn/facedet/negatives.npy'
+                        positive_samples: '/state/partition1/ballasn/facedet/positives.npy',
+                        negative_samples: '/state/partition1/ballasn/facedet/negatives.npy',
+                        axes: ['c', 0, 1, 'b'],
                       },
             },
         cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
