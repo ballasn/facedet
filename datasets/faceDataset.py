@@ -68,9 +68,9 @@ class faceDataset(dataset.Dataset):
 
 
         ### Initialize data
-        x = np.zeros(self.vidShape + [lastIdx - firstIdx,],
+        x = np.zeros([minibatch_size, self.positives.shape[1]],
                      dtype = "float32")
-        y = np.zeros([lastIdx - firstIdx, self.nbTags],
+        y = np.zeros([minibatch_size, 2],
                      dtype="float32")
 
 
@@ -96,7 +96,7 @@ class faceDataset(dataset.Dataset):
 
         cur_positives += nb_pos
         cur_negatives += nb_neg
-        return x, y, cur_positives, cur_negatives
+        return (x, y), cur_positives, cur_negatives
 
 
 
@@ -183,9 +183,10 @@ class FaceIterator:
             print self._num_batches
             raise StopIteration()
         else:
-            data,self._cur_pos,self._cur_neg = \
-            self._dataset.get_minibatch(self._cur_pos, self._cur_neg, \
-                      self._batch_size, self._data_specs, self._return_tuple)
+            data, self._cur_pos, self._cur_neg = \
+                self._dataset.get_minibatch(self._cur_pos, self._cur_neg,
+                                            self._batch_size, self._data_specs,
+                                            self._return_tuple)
             return data
 
 
