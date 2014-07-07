@@ -179,7 +179,7 @@ class FaceIterator:
 
     def next(self):
         if self._cur_pos >= self._num_pos and self._cur_neg >= self._num_neg:
-            print self.num_example
+            print self.num_examples
             print self._num_batches
             raise StopIteration()
         else:
@@ -199,11 +199,17 @@ if __name__=="__main__":
     print "Done, now the iterator"
     print type(fd)
     fi = FaceIterator(dataset=fd,batch_size = 10)
-    print "next()"
-    fi.next()
-    print "next()"
-    fi.next()
-    print "next()"
-    fi.next()
+
+    i = 0
+    for fi in FaceIterator(dataset=fd,batch_size = 10):
+        print i
+        i += 1
+
+    # print "next()"
+    # fi.next()
+    # print "next()"
+    # fi.next()
+    # print "next()"
+    # fi.next()
 
 
