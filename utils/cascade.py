@@ -140,7 +140,7 @@ class PatchExtractor():
                         #else:
                             # print "______ New Center ____"
                            # print "center",s,i,j,":",center
-                    except IndexError:
+                    except KeyError:
                         #print "center",s,i,j,":",center
                         continue
                     local_max = True
@@ -220,15 +220,14 @@ class PatchExtractor():
 
                                     try:
                                         n = results[neighbour]
-                                        #######################
-                                        nei.append((s_test,i_t+di,j_t+dj))
-                                        #######################
-
                                         #print "neighbour :",s_test,i_t+di,j_t+dj,
-                                    except IndexError:
-                                        print "neighbour", s_test, i_t+di, j_t+dj, ":", neighbour
-                                        print (s_test, i_t+di, j_t+dj)
-                                        sys.exit(1)
+                                    except KeyError:
+                                        dj += 1
+                                        p_test_var = [p_test[0] + di*stride_t,
+                                                      p_test[1] + dj*stride_t,
+                                                      p_test[2] + di*stride_t + size_t,
+                                                      p_test[3] + dj*stride_t + size_t]
+                                        continue
 
                                     if c >= n:
                                         results[neighbour] = 0.0
@@ -255,7 +254,6 @@ class PatchExtractor():
                     # It's a local max
                     if local_max:
                         local_maxima.append(center)
-                        #print nei
                         #print "---------------------- > is a Local Max"
         # Return the list of the indices of patches that are local maxima
         return local_maxima
@@ -287,13 +285,15 @@ class PatchExtractor():
                     c += len(p)
         print "size of pyramid", c
         print "len of classif", len(classifications)
-
+        probs = {}
+        for i in classifications:
+            probs[i] = classifications[i][5]
     # pyramids is first indexed by the file name
         cleaned_results = {}
         for f in pyramids:
             print f
             cleaned_results[f] = self.nonMaxSuppression(pyramids[f], \
-                    [c[5] for c in classifications])
+                    probs)
         print cleaned_results
         patches_per_file = {}
         ## Now tranforming results file by file
@@ -321,11 +321,8 @@ class PatchExtractor():
         return 0
 
 
-### Main function
-
 def classify(model_file, files, patch_extractor, output_file):
     batch, batch_meta, pyramids = patch_extractor.createBatch(files)
-    probs = []
     ####### Get model
     with open(model_file, "rb") as fd:
             model = cPickle.load(fd)
@@ -340,14 +337,20 @@ def classify(model_file, files, patch_extractor, output_file):
     size_minibatch = 128
     print len(batch)/size_minibatch + 1, "mini batches"
     t0 = time()
+
+    probs = {}
     for i in xrange(len(batch)/size_minibatch+1):
         s = range(128*i,min(128*(i+1),len(batch)))
         mini_batch = np.array([batch[i] for i in s])
         mini_batch = np.transpose(mini_batch, (3,1,2,0))
         t = time()
         # Classify returns a couple [p(face), p(non-face)]
+        # We'll keep those with p(face)>0.5
         cl = classify(mini_batch)
-        probs.extend([p[0] for p in cl])
+        for j in s:
+            p =  cl[j%128][0]
+            if p > 0.5:
+                probs[j] = p
         dt = time()-t
         print "Temps par image :", dt/128.0
 
@@ -358,13 +361,12 @@ def classify(model_file, files, patch_extractor, output_file):
 
     ####### Write the results with the info about patches and files
     # Transform patches for function
-    info = []
-    for i in xrange(len(probs)):
-        f, [x, y, s] = batch_meta[i]
-        info.append([f, x, y, s*patch_extractor.size,\
-            s*patch_extractor.size, probs[i]])  #[f,x,y,w,h,prob]
+    info = {}
+    for p in probs:
+        f, [x, y, s] = batch_meta[p]
+        info[p] = ([f, x, y, s*patch_extractor.size,\
+            s*patch_extractor.size, probs[p]])  #[f,x,y,w,h,prob]
 
-        # Result file is large
     with open(output_file, "wb") as result_file:
         cPickle.dump(info, result_file)
 
@@ -408,12 +410,6 @@ def displayResults(folder, results_file):
         displayPatch(f, best_patches[f])
     return 0
 
-###### Utils
-def overlap(a, b):
-    """
-    For rectangles defined by 2 points
-    """
-    return not(a[2]<b[0] or a[3]<b[1] or a[0]>b[2] or a[1]>b[3])
 
 def displayPatch(image_file, patches):
     # Display bounding box of patches on an image
@@ -425,19 +421,21 @@ def displayPatch(image_file, patches):
         # Here we transpose them
         cv2.rectangle(image, (patch[1],patch[0]), (patch[3],patch[2]),
                 (0,255,0), 3)
-        cv2.rectangle(image, (patch[0],patch[1]), (patch[2],patch[3]),
-                (255,0,0), 1)
     cv2.imshow(image_file, image)
     c = cv2.waitKey(0)
     cv2.destroyWindow(image_file)
     return 0
 
-def removeIndex(l,i):
-    return l[:i]+l[i+1:]
+def overlap(a, b):
+    """
+    For rectangles defined by 2 points
+    """
+    return not(a[2]<b[0] or a[3]<b[1] or a[0]>b[2] or a[1]>b[3])
 
-    return 0
+################################################
+########### TEST FUNCTIONS #####################
+################################################
 
-################################## TEST
 def testSuppression():
     size, scales, stride = 2, [1.0, 1.5, 2], 1
     print "size", size, "stride", stride, "scales", scales
@@ -493,28 +491,15 @@ def testOverlap(n,p):
             A = [i,j,i+3,j+3]
             if overlap(A,B):
                 print A
-
     return 0
 
-if __name__ == "__main__":
-    #testSuppression()
-    #testOverlap(10,10)
-
-    f1 = "00001-18107.jpg"
-    f2 = "image.jpg"
-    f3 = "image2.jpg"
-    f4 = "image3.jpg"
-    f5 = "image4.jpg"
-    image = cv2.imread(f1)
-    print image.shape
+def testRealCases():
     size,scales,stride = 48 ,[3,4,5,6,7], 8
     print "size",size,"stride",stride,"scales",scales
     patch_extractor = PatchExtractor(size, scales, stride)
+
     # Testing with some files from FDDB
     folder = "/data/lisa/data/faces/FDDB_old/2002/07/19/big/"
-    #files = ["/data/lisa/data/faces/FDDB_old/2002/07/19/big/img_827.jpg"]
-    #files = [f1,f2,f3,f4,f5]
-
     files = [join(folder,f) for f in
             listdir(folder) if
             isfile(join(folder,f))]
@@ -526,7 +511,6 @@ if __name__ == "__main__":
     pyramid_file = "pyramids.pkl" # Can grow large
     output_file = "outputForFDDB.txt"
     ### Classify
-
     p2 = classify(modelfile, files, patch_extractor, classif_file)
     ### Write the results for FDDB test
     print "-"*30
@@ -539,3 +523,5 @@ if __name__ == "__main__":
     print "-"*30
     displayResults(folder, output_file)
 
+if __name__ == "__main__":
+    testRealCases()
