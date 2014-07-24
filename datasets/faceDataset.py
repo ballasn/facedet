@@ -44,16 +44,14 @@ class faceDataset(dataset.Dataset):
             self.positives =  np.load(positive_samples)
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives = self.positives[0:nb_train, :]
-
             self.negatives =  np.load(negative_samples)
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives = self.negatives[0:nb_train, :]
+
         elif which_set == 'valid':
             self.positives =  np.load(positive_samples)
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives = self.positives[nb_train:self.positives.shape[0], :]
-
-
             self.negatives =  np.load(negative_samples)
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives = self.negatives[nb_train:self.negatives.shape[0], :]

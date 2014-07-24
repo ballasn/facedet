@@ -63,8 +63,8 @@
         monitor_iteration_mode: 'even_sequential',
         monitoring_dataset:
             {
-
-                'valid' : !obj:facedet.datasets.faceDataset.faceDataset {
+                'train': *train,
+                'valid': !obj:facedet.datasets.faceDataset.faceDataset {
                         which_set: 'valid',
                         positive_samples: '/state/partition1/ballasn/facedet/positives.npy',
                         negative_samples: '/state/partition1/ballasn/facedet/negatives.npy',
@@ -81,6 +81,6 @@
             N: 1000
         },
     },
-    save_path: "facedataset_conv2d.pkl",
+    save_path: "facedataset_conv2d_2.pkl",
     save_freq: 1
 }
