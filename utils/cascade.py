@@ -11,18 +11,12 @@ from theano import function
 from theano import tensor as T
 from itertools import product
 from time import time
-### Arguments
-
-if len(sys.argv)<2:
-    print "cascade.py <folder>"
-    #sys.exit(2)
-else:
-    folder = sys.argv[1]
-    images = [f for f in listdir(folder) if isfile(join(folder,f)) ]
-    #Non Images files ?
+from optparse import OptionParser
 
 
-# Get patches from image
+
+
+####################################
 class PatchExtractor():
     """
     Defines the way patches are extracted from images
@@ -83,7 +77,7 @@ class PatchExtractor():
                     # Add the patch to the list
                     patches_data.append(patch)
                     # We need to record the scale to perfom non-max suppression
-                    patches.append([filename, [x,y,s]])
+                    patches.append([filename, [int(x),int(y),s]])
                     # pyramid[s][i][j] is now index
                     pyramid[s][i].append(index)
                     index += 1
@@ -92,31 +86,39 @@ class PatchExtractor():
                 i += 1
                 y += scaled_stride
                 if len(pyramid[s][0])==0:
-                    print "scale",s,"patch size",self.size*s
+                    print "scale", s, "patch size", self.size*s
                     print image.shape
                     sys.exit(1)
         return patches_data, patches, pyramid, index
 
-    def createBatch(self, files):
+    def createBatch(self, files, data_dir):
         """
         Create a batch of patches form a list of files
         The name of corresponding files are written in batch_meta
           with the number of patches for the given file
         """
-
-        batch = []
-        batch_meta = []
-        pyramids = {}
         start = 0
         for f in files:
-            print "start",start
+            sys.stdout.write("\rextracting from "+f)
+            sys.stdout.flush()
             patches_data, patches, py, start = self.extract(f,start)
             patches_data = np.array(patches_data, dtype=np.float32)
-            batch.extend(patches_data)  # [image_data]
-            batch_meta.extend(patches)  # [file,[x,y,s]]
+            #batch.extend(patches_data)  # [image_data]
+            #batch_meta.extend(patches)  # [file,[x,y,s]]
             filename = split(f)[-1]
-            pyramids[filename] = py
-        return batch, batch_meta, pyramids
+            #pyramids[filename] = py
+            # One file per pyramid to avoid Memory Error
+            filename = filename[:-4]
+            print "\npyramid",type(py)
+            with open(join(data_dir,"py_"+filename)+".pkl","wb") as py_file:
+                cPickle.dump(py,py_file)
+
+            with open(join(data_dir,"batch_"+filename)+".pkl","wb") as b_file:
+                cPickle.dump(patches_data,b_file) #[image_data]
+
+            with open(join(data_dir,"batchmeta_"+filename)+".pkl","wb") as bm_file:
+                cPickle.dump(patches,bm_file)  #[file, [x,y,s]]
+
 
 ### Keep Max of probs non-overlapped
     def nonMaxSuppression(self, pyramid, probs):
@@ -164,15 +166,18 @@ class PatchExtractor():
                         stride_t = s_test*self.stride
                         p_test = [0, 0, size_t, size_t]
                         indices = []
+                        maxi, maxj = 0, 0
                         # Scan new scale until overlap
                         while not overlap(p, p_test):
                             if i_t == len(pyramid[s_test]):
                                 break
-                            elif j_t == len(pyramid[s_test]):
+                            elif j_t == len(pyramid[s_test][i_t]):
                                 j_t = 0
                                 i_t += 1
+                                maxi = max(maxi, i_t)
                             else:
                                 j_t += 1
+                                maxj = max(maxj, j_t)
                             p_x = i_t*stride_t
                             p_y = j_t*stride_t
                             p_test = [p_x, p_y, p_x + size_t, p_y + size_t]
@@ -182,12 +187,23 @@ class PatchExtractor():
                             #print "p_test",
                             #print p_test
                         if i_t==len(pyramid[s_test]) or \
-                                j_t==len(pyramid[s_test][i_t]):
+                                j_t==len(pyramid[s_test][i_t]):  # no overlap
                                 print "_"*20
                                 print "no overlap found"
                                 print p
-                                print "s_test,i_t,j_t", s_test, i_t, j_t
+                                print "s,  i,  j"
+                                print s, i, j
+                                print "s_test,i_t,j_t"
+                                print s_test, i_t, j_t
+                                print maxi,maxj
+                                print "len py[s_test],py[s_test][i_t]"
+                                print \
+                                len(pyramid[s_test]),len(pyramid[s_test][i_t-1])
+                                print "len py[s],py[s][i]"
+                                print \
+                                len(pyramid[s]),len(pyramid[s][i])
                                # print indices
+                                print "Stopping program at line 194"
                                 sys.exit(1)
 
                         p_test_var = copy.copy(p_test)
@@ -258,7 +274,7 @@ class PatchExtractor():
         # Return the list of the indices of patches that are local maxima
         return local_maxima
 
-    def writeResults(self, classifications_file, pyramid_file, output_file):
+    def writeResults(self, classifications_file, files, data_dir, output_file):
         """
         Write classification to a file.
         This file aims at being read for FDDB test.
@@ -274,27 +290,38 @@ class PatchExtractor():
 #### As it uses dict structure, it won't write twice for the same file
         with open(classifications_file, "rb") as c_file:
             classifications = cPickle.load(c_file)
-        with open(pyramid_file, "rb") as p_file:
-            pyramids = cPickle.load(p_file)
 
         # Checking sizes
         c = 0
-        for f in pyramids:
-            for s in pyramids[f]:
-                for p in pyramids[f][s]:
-                    c += len(p)
-        print "size of pyramid", c
-        print "len of classif", len(classifications)
-        probs = {}
-        for i in classifications:
-            probs[i] = classifications[i][5]
-    # pyramids is first indexed by the file name
-        cleaned_results = {}
-        for f in pyramids:
-            print f
-            cleaned_results[f] = self.nonMaxSuppression(pyramids[f], \
-                    probs)
-        print cleaned_results
+        indices = {}
+        for f in files:
+            filename = split(f)[-1][:-4]
+            py_file = join(data_dir,"py_"+filename+".pkl")
+            # Loading the pyramid dict
+            with open(py_file, "rb") as p_file:
+                pyramid = cPickle.load(p_file)
+            print "pyramid",type(pyramid)
+            indices[f]=[]
+            for s in pyramid:
+                for p in pyramid[s]:
+                    for i in p:
+                        if i in classifications:
+                            indices[f].append(i)
+                        c+=1
+            print "size of pyramid", c
+            print "len of classif", len(classifications)
+            ######### NMS ###########
+            if options.nms:
+                probs = {}
+                for i in classifications:
+                    probs[i] = classifications[i][5]
+                cleaned_results = {}
+                # Apply NMS
+                cleaned_results[f] = self.nonMaxSuppression(pyramid, \
+                            probs)
+            else:
+                cleaned_results = indices
+
         patches_per_file = {}
         ## Now tranforming results file by file
         for f in cleaned_results:
@@ -321,60 +348,64 @@ class PatchExtractor():
         return 0
 
 
-def classify(model_file, files, patch_extractor, output_file):
-    batch, batch_meta, pyramids = patch_extractor.createBatch(files)
-    ####### Get model
-    with open(model_file, "rb") as fd:
-            model = cPickle.load(fd)
-    print "-"*30
-    print model
-    print "-"*30
-    # Define the classification function
-    x = T.tensor4('x')
-    classify = function([x], model.fprop(x))
-    print "fprop is defined, let's classify"
-    ### For one file
-    size_minibatch = 128
-    print len(batch)/size_minibatch + 1, "mini batches"
-    t0 = time()
+    def classify(self, model_file, files, data_dir, output_file):
+        ####### Get model
+        with open(model_file, "rb") as fd:
+                model = cPickle.load(fd)
+        print "-"*30
+        print model
+        print "-"*30
+        # Define the classification function
+        x = T.tensor4('x')
+        classify = function([x], model.fprop(x))
+        print "fprop is defined, let's classify"
 
-    probs = {}
-    for i in xrange(len(batch)/size_minibatch+1):
-        s = range(128*i,min(128*(i+1),len(batch)))
-        mini_batch = np.array([batch[i] for i in s])
-        mini_batch = np.transpose(mini_batch, (3,1,2,0))
-        t = time()
-        # Classify returns a couple [p(face), p(non-face)]
-        # We'll keep those with p(face)>0.5
-        cl = classify(mini_batch)
-        for j in s:
-            p =  cl[j%128][0]
-            if p > 0.5:
-                probs[j] = p
-        dt = time()-t
-        print "Temps par image :", dt/128.0
+        ### For one file
+        size_minibatch = 128
+        #print len(batch)/size_minibatch + 1, "mini batches"
+        t0 = time()
 
-    # Sur simplet : 0.0411s
-    # Sur GTX480 : 0.0006s
-    print "File :"
-    print "Classified", len(batch), "patches in", time()-t0
+        probs = {}
+        info = {}
+        for f in files:
+            # Load data from patches
+            filename = split(f)[-1]
+            with open(join(data_dir, "batch_"+filename[:-4]+".pkl"), "rb") as b_file:
+                batch = cPickle.load(b_file)
+            with open(join(data_dir, "batchmeta_"+filename[:-4]+".pkl"), "rb") as bm_file:
+                batch_meta = cPickle.load(bm_file)
+            print "got",len(batch),"for",filename
+            for i in xrange(len(batch)/size_minibatch+1):
+                s = range(128*i,min(128*(i+1),len(batch)))
+                mini_batch = np.array([batch[i] for i in s])
+                mini_batch = np.transpose(mini_batch, (3,1,2,0))
+                t = time()
+                # Classify returns a couple [p(face), p(non-face)]
+                # We'll keep those with p(face)>0.5
+                cl = classify(mini_batch)
+                for j in s:
+                    p =  cl[j%128][0]
+                    if p > 0.5:
+                        # Add element to the dict of possible faces
+                        f, [x, y, s] = batch_meta[j]
+                        if type(x) == float or type(y) == float:
+                            print "x",x,"y",y
+                            print "one is a float, they should be ints"
+                            sys.exit(1)
+                        info[j] = ([f, x, y, int(s*self.size),\
+                int(s*self.size), p])  # [f,x,y,w,h,prob]
+                dt = time()-t
+                print "Temps par patch :", dt/128.0
+                # Sur simplet : 0.0411s
+                # Sur GTX480 : 0.0006s
 
-    ####### Write the results with the info about patches and files
-    # Transform patches for function
-    info = {}
-    for p in probs:
-        f, [x, y, s] = batch_meta[p]
-        info[p] = ([f, x, y, s*patch_extractor.size,\
-            s*patch_extractor.size, probs[p]])  #[f,x,y,w,h,prob]
+        ####### Write the results with the info about patches and files
 
-    with open(output_file, "wb") as result_file:
-        cPickle.dump(info, result_file)
+        with open(output_file, "wb") as result_file:
+            cPickle.dump(info, result_file)
 
-    with open("pyramids.pkl", "wb") as pyramid_file:
-        cPickle.dump(pyramids, pyramid_file)
 
-    print "Done dumping"
-    return pyramids
+        print "Done dumping"
 
 
 def displayResults(folder, results_file):
@@ -498,18 +529,20 @@ def testRealCases():
     print "size",size,"stride",stride,"scales",scales
     patch_extractor = PatchExtractor(size, scales, stride)
 
-    # Testing with some files from FDDB
+
+# Testing with some files from FDDB
     folder = "/data/lisa/data/faces/FDDB_old/2002/07/19/big/"
-    files = [join(folder,f) for f in
+    files = [join(folder, f) for f in
             listdir(folder) if
-            isfile(join(folder,f))]
+            isfile(join(folder, f))]
     print files
 
     ### Define used files
     modelfile = "../models/facedataset_conv2d_2.pkl"
-    classif_file = "classif.pkl" # Can grow large
-    pyramid_file = "pyramids.pkl" # Can grow large
+    classif_file = "classif.pkl"  # Can grow large
+    pyramid_file = "pyramids.pkl"  # Can grow large
     output_file = "outputForFDDB.txt"
+
     ### Classify
     p2 = classify(modelfile, files, patch_extractor, classif_file)
     ### Write the results for FDDB test
@@ -523,5 +556,55 @@ def testRealCases():
     print "-"*30
     displayResults(folder, output_file)
 
-if __name__ == "__main__":
-    testRealCases()
+######### Arguments ##############
+
+#Non Images
+parser = OptionParser()
+parser.add_option("--nms", action="store_true", dest="nms",default=False)
+(options, args) = parser.parse_args()
+print "options", options
+print "args", args
+
+if len(args)<1:
+    print "cascade.py <folder>"
+    sys.exit(2)
+
+## Define the patch_extractor
+size = 48
+scales = [1, 1.5, 2]
+stride = 4
+p_e = PatchExtractor(size, scales, stride)
+
+### Look for the images
+folder = sys.argv[1]
+files = [join(folder, f) for f in
+            listdir(folder) if
+            isfile(join(folder, f))]
+print "got", len(files), "files"
+files = ["/data/lisa//data/faces/FDDB/2002/07/19/big/img_854.jpg"]
+### Define used files
+modelfile = "../models/facedataset_conv2d_2807.pkl"
+classif_file = "classif.pkl"  # Can grow large
+data_dir = "patches"  # Can grow large
+output_file = "outputForFDDB.txt"
+
+## Extract patches
+print "-"*20
+print "Creating batches"
+print "-"*20
+p_e.createBatch(files, data_dir)
+### Classify
+print "-"*20
+print "Classifying"
+print "-"*20
+p_e.classify(modelfile, files, data_dir,classif_file)
+print "-"*20
+print "Writing Results and performing NMS"
+print "-"*20
+p_e.writeResults(classif_file, files, data_dir, output_file)
+print "-"*20
+print "Displaying"
+print "-"*20
+displayResults(folder, output_file)
+
+
