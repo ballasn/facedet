@@ -21,23 +21,30 @@ def create_positives_sample(img_list,
 
     # ### Get the number of bounding box
     nb_box = 0
+    """
     for img in img_list:
+        if nb_box%100 == 0:
+            sys.stdout.write("\r"+str(nb_box)+" bboxes")
+            sys.stdout.flush()
         bbox_file = os.path.join(bbox_dir, os.path.splitext(img)[0] + bbox_ext)
         if (os.path.isfile(bbox_file)):
             # print "Load:", bbox_file
             bbox = np.loadtxt(skipper(bbox_file), delimiter=',')
             nb_box += bbox.shape[0]
+    """
 
-
-    print nb_box
+    nb_box = 700000
     ### Initialize resulting matrix
-    data = np.zeros((100000, patch_size[0] * patch_size[1] * nb_channels), dtype=np.float32)
+    data = np.zeros((nb_box, patch_size[0] * patch_size[1] * nb_channels), dtype=np.float32)
     cur = 0
 
     for img in img_list:
-        print cur, img, nb_box
+        #print cur, img, nb_box
         if cur >= len(data):
             break
+        if cur%100 == 0:
+            sys.stdout.write("\r"+str(cur))
+            sys.stdout.flush()
 
         ### Get image filenames
         filepath = os.path.join(img_dir, img).strip()
@@ -57,7 +64,7 @@ def create_positives_sample(img_list,
             bbox = np.reshape(bbox, (1, bbox.shape[0]))
 
         for b in xrange(0, bbox.shape[0]):
-            print bbox[b, :]
+            #print bbox[b, :]
             ### Debug show rectange
             # cv2.rectangle(img,
             #               (bbox[b, 3], bbox[b, 2]),
@@ -125,6 +132,10 @@ def create_negative_sample(img_list,
 
     cur = 0
     while cur < nb_samples:
+        if cur%100 == 0:
+            sys.stdout.write("\r"+str(cur))
+            sys.stdout.flush()
+
 
         idx = np.random.randint(0, len(img_list))
         img = img_list[idx]
