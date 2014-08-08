@@ -356,6 +356,9 @@ class PatchExtractor():
         patches_per_file = {}
         ## Now tranforming results file by file
         for f in files:
+            if not isfile(join(data_dir,f)):
+                print "ignoring invalid file :", f
+                continue
             filename = split(f)[-1][:-4]
             clean_file = join(data_dir, filename+"_clean.pkl")
             with open(clean_file, "rb") as c_file:
@@ -621,8 +624,9 @@ if len(args)<2:
 
 ## Define the patch_extractor
 size = 48
-scales = [1, 2, 3, 4]
-stride = 12
+scales = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3, 4]
+#scales = [1,2]
+stride = 24
 p_e = PatchExtractor(size, scales, stride)
 
 ### Look for the images
@@ -652,6 +656,9 @@ model = getModel(model_file)
 #    Temp files are rewritten to limit mem usage
 
 for f in files[:10]:
+    if not isfile(join(data_dir,f)):
+        print "can't read", join(data_dir,f)
+        continue
     # 2.1 Extract patches and write them at <data_dir>
     print "-"*20
     print "Creating batches"
