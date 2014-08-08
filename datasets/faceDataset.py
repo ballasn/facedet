@@ -153,6 +153,9 @@ class faceDataset(dataset.Dataset):
     def get_design_matrix(self, topo=None):
         return self.positives
 
+    def get_num_examples(self):
+        return self.nb_pos + self.nb_neg
+
 
 def load_list(filename):
     id_list = []
