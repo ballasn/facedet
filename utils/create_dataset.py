@@ -221,7 +221,7 @@ if __name__ == '__main__':
     img_files = load_list(sys.argv[3])
     negative = int(sys.argv[4])
     size = int(sys.argv[5])
-    if (not size in [48, 96]):
+    if (not size in [16, 48, 96]):
         print "Invalid patch size", size
         exit(1)
     patch_size= (size, size)
