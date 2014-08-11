@@ -12,7 +12,7 @@ from theano import tensor as T
 from itertools import product
 from time import time
 from optparse import OptionParser
-
+from emotiw.common.datasets.faces import FDDB
 
 
 
@@ -615,21 +615,19 @@ def testRealCases():
 parser = OptionParser()
 parser.add_option("--nms", action="store_true", dest="nms",default=False)
 (options, args) = parser.parse_args()
-print "options", options
-print "args", args
-
-if len(args)<2:
-    print "cascade.py <list_file> <prefix>"
-    sys.exit(2)
+print "Non-max Suppression :", options
 
 ## Define the patch_extractor
 size = 48
 scales = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3, 4]
 #scales = [1,2]
 stride = 24
+print "Input size :", size
+print "Stride :", stride
+print "Scales :", scales
 p_e = PatchExtractor(size, scales, stride)
 
-### Look for the images
+"""### Look for the images
 list_file = args[0]
 prefix = args[1]
 files = []
@@ -639,7 +637,10 @@ with open(list_file,"rb") as l_file:
 print "got", len(files), "files"
 #files = [files[0]]
 print files[:2]
-### Define used files
+"""
+# Using FDDB interface by Thomas Rohee
+fddb = FDDB.FDDB()
+print "Nombre de fichiers :", len(fddb)
 model_file = "../models/facedataset_700k_0408.pkl"
 classif_file = "classif.pkl"  # Can grow large
 data_dir = "/data/lisatmp3/chassang/facedet/patches"  # Can grow large
@@ -647,18 +648,18 @@ output_file = "outputForFDDB.txt"
 
 ########## Pipeline is now used one file at a time
 # 1. Get the model
-print "-"*20
+print "-"*30
 print "Defining the classifier"
-print "-"*20
 model = getModel(model_file)
 
 # 2. Loop over files to extract and classify
 #    Temp files are rewritten to limit mem usage
 
-for f in files[:10]:
-    if not isfile(join(data_dir,f)):
-        print "can't read", join(data_dir,f)
-        continue
+for i in xrange(10):#len(fddb)):
+    # Get image path
+    f = fddb.get_original_image_path_relative_to_base_directory(i)
+    f = join(fddb.absolute_base_directory, f)
+    print f
     # 2.1 Extract patches and write them at <data_dir>
     print "-"*20
     print "Creating batches"
