@@ -17,7 +17,7 @@ from pylearn2.datasets import dataset
 from pylearn2.utils.serial import load
 from pylearn2.utils.string_utils import preprocess
 from pylearn2.space import VectorSpace, CompositeSpace
-
+from math import sqrt
 
 
 
@@ -78,7 +78,11 @@ class faceDataset(dataset.Dataset):
                                            self.negatives[-1, :].reshape(1, self.negatives.shape[1]),
                                            axis=0)
 
-        self.img_shape = [48, 48, 3]
+        # self.img_shape = [48, 48, 3]
+        # Compute img_shape, assuming square images in RGB
+        size = int(sqrt(self.positives[0].shape[0] / 3))
+        self.img_shape = [size, size, 3]
+        print "image shape :",self.img_shape
         self.nb_examples = self.positives.shape[0] + self.negatives.shape[0]
         self.which_set = which_set
         self.axes = axes
