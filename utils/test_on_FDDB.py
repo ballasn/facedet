@@ -8,7 +8,7 @@ However you may have to check the variables in that exe.
 # Imports
 import sys
 from os.path import join, split, isdir, isfile
-from os import remove, mkdir
+from os import remove, mkdir, listdir
 from optparse import OptionParser
 from cascade import PatchExtractor, getModel
 
@@ -40,12 +40,14 @@ stride = 16
 p_e = PatchExtractor(size, scales, stride)
 print "-"*30
 print "Input size :", size, "|| Stride :", stride, "|| Scales :", scales
+
 if not options.nms:
     print "*"*40
     print "NON MAXIMUM"
     print "            SUPPRESSION"
     print "                        IS NOT ACTIVATED"
     print "*"*40
+
 # Model
 print "-"*30
 print "Defining the classifier"
@@ -59,7 +61,7 @@ def processFold(p_e, nb_fold, temp_dir, det_dir, model,
     Apply the model on all images from one fold
     The patches are extracted according to the PatchExtractor properties
     ----------------
-    Results written at <det_dir>/FDDB-fold-<nb_fold>-out.txt
+    Results written at <det_dir>/fold-<nb_fold>-out.txt
     """
     # define file indicating list of files
     if nb_fold < 10:
@@ -74,13 +76,20 @@ def processFold(p_e, nb_fold, temp_dir, det_dir, model,
     with open(fold, "rb") as fold_list:
         for line in fold_list:
             files.append(join(img_dir, line[:-1]+".jpg"))  # Remove \n
+    # Checking existing files
     L = []
-    L2 = []
     for f in files:
         if not isfile(f):
             L.append(f)
-    for f in files:
+
+    # Faster with NMS
+    results = []
+    l_f = len(files)
+    for i, f in enumerate(files):
         # Extract patches
+        sys.stdout.write("\r" + str(nb_fold) + "th fold,"
+                         + str(i) + "/" + str(l_f) + " processed images")
+        sys.stdout.flush()
         success = p_e.writePatches(f, temp_dir)
         if not success:
             continue
@@ -89,12 +98,15 @@ def processFold(p_e, nb_fold, temp_dir, det_dir, model,
         p_e.classify(model, temp_dir)
 
         # Format results
-        p_e.formatResults(f, temp_dir, options.nms)
+        if options.nms:
+            results.append([f, p_e.formatResults(f, temp_dir, options.nms)])
+        else:
+            p_e.formatResults(f, temp_dir, options.nms)
 
     # Write results for FDDB and perform NMS
-    sys.exit(1)
-    output_fold = join(det_dir, "FDDB-fold-"+nb_s+"-out.txt")
-    p_e.writeResults(files, temp_dir, output_fold)
+    output_fold = join(det_dir, "fold-"+nb_s+"-out.txt")
+    p_e.writeResults(files, temp_dir, output_fold, options.nms,
+                     results=results)
 
     # Clean temp_dir from temp files
     print "Now cleaning temp files "
@@ -105,10 +117,14 @@ def processFold(p_e, nb_fold, temp_dir, det_dir, model,
         if isfile(temp_file):
             remove(temp_file)
     print "Done cleaning"
-    print "Files that don't exist :"
-    print L
+    return L
 
-    return 0
+fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/"
+nb_folds = len(listdir(fold_dir)) / 2
+missing = {}
+print nb_folds, "to be processed"
+for i in range(1, nb_folds + 1):
+    missing[i] = processFold(p_e, i, temp_dir, det_dir, model)
+print "Missing files :"
+print missing
 
-nb_fold = 1
-processFold(p_e, nb_fold, temp_dir, det_dir, model)
