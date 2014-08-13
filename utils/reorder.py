@@ -1,6 +1,6 @@
 import sys
-import os
-
+from os.path import isdir, join
+from os import mkdir, listdir
 
 def getInfo(target, info_file):
     """
@@ -64,13 +64,21 @@ def writeOrderedFile(source_file, order_file, output_file):
 
 
 if __name__ == "__main__":
-    source_file = "./outputForFDDB.txt"
-    order_file = "/data/lisa/data/faces/FDDB/FDDB-folds/FDDB-fold-01.txt"
-    output_file = "./orderedOutput.txt"
-    #target = '2002/07/26/big/img_517\n'.split('/')[-1]
-    print 'source_file :', source_file
-    print 'order_file :', order_file
-    #print 'target :', repr(target)
-    #with open(source_file, "rb") as info_file:
-        #    print getInfo(target, info_file)
-    writeOrderedFile(source_file, order_file, output_file)
+    source_dir = "./detections_obtained"
+    order_dir = "/data/lisa/data/faces/FDDB/FDDB-folds/"
+    output_dir = "./detections_ordered"
+    if not isdir(output_dir):
+        mkdir(output_dir)
+    print 'source_dir :', source_dir
+    print 'order_dir :', order_dir
+    print 'output_dir :', output_dir
+    nb_folds = len(listdir(order_dir)) / 2
+    for i in range(1, nb_folds+1):
+        if i < 10:
+            nb_s = "0" + str(i)
+        else:
+            nb_s = str(i)
+        source_file = join(source_dir, "fold-"+nb_s+"-out.txt")
+        order_file = join(order_dir, "FDDB-fold-"+nb_s+".txt")
+        output_file = join(output_dir, "fold-"+nb_s+"-out.txt")
+        writeOrderedFile(source_file, order_file, output_file)
