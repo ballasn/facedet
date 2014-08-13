@@ -3,15 +3,15 @@ import cv2
 import sys
 from matplotlib import pyplot as plt
 ### Histogram equalization ###
-def histeq(data_file, output_file):
+def histeq(data_file, output_file, img_size):
     # Load data
     data  = np.load(data_file)
     for e in xrange(data.shape[0]):
-        if e%10==0:
-            sys.stdout.write("\r"+str(e))
+        if e%100==0:
+            sys.stdout.write("\r"+str(e)+" equalized images")
             sys.stdout.flush()
         img = np.asarray(data[e], dtype = np.uint8)
-        img = np.reshape(img, (48,48,3))
+        img = np.reshape(img, (img_size, img_size, 3))
 
         # hist eq
         for i in range(3):
@@ -32,10 +32,11 @@ def histeq(data_file, output_file):
 
 if __name__ == '__main__':
 
-    if len(sys.argv) != 3:
-        print("Usage %s: <data_dir> <output_dir>" % sys.argv[0])
+    if len(sys.argv) != 4:
+        print("Usage %s: <data_file> <output_file> <img_size>" % sys.argv[0])
         exit(1)
 
     data_dir = sys.argv[1]
     output_dir = sys.argv[2]
-    histeq(data_dir, output_dir)
+    img_size = int(sys.argv[3])
+    histeq(data_dir, output_dir, img_size)
