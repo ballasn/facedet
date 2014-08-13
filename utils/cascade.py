@@ -101,9 +101,8 @@ class PatchExtractor():
         # Check if real file
         if not isfile(f):
             print f, "is not a file"
-            sys.exit(1)
+            return False
         # Otherwise, process it
-        print "Start extracting from "+f
         patches, patches_meta, py = self.extract(f)
         patches = np.array(patches, dtype=np.float32)
         #batch.extend(patches_data)  # [image_data]
@@ -112,15 +111,14 @@ class PatchExtractor():
         py_name = join(output_dir, "py_temp.pkl")
         bm_name = join(output_dir, "batchmeta_temp.pkl")
         b_name  = join(output_dir, "batch_temp.npy")
-        print "got", patches.shape[0], "patches"
-        print "wrrting files :",py_name, bm_name, b_name
+        #print "\tGot", patches.shape[0], "patches"
 
         with open(py_name, "wb") as py_file:
             cPickle.dump(py, py_file)
         with open(bm_name, "wb") as bm_file:
             cPickle.dump(patches_meta, bm_file)  #[file, [x,y,s]]
         np.save(b_name, patches)
-        return 0
+        return True
 
 ### Keep Max of probs non-overlapped
     def nonMaxSuppression(self, pyramid, probs):
@@ -288,56 +286,59 @@ class PatchExtractor():
                         local_maxima[center] = [p_x, p_y, int(s*self.size),
                             int(s*self.size), c]
                         #print "---------------------- > is a Local Max"
-        print local_maxima
         # Return the list of [x,y,w,h,p] of patches that are local maxima
         return local_maxima
 
-    def formatResults(self, data_dir, f):
+    def formatResults(self, f, temp_dir, nms):
         """
         This function formats the result, so that
         they can be read to create the final life.
         If NMS is activated it will be perform it
         before writing the file.
+        ------------------------
+        Reads :
+            <temp_dir>/py_temp.pkl
+            <temp_dir>/classif_temp.pkl
+        Writes :
+            <temp_dir>/<filename>_clean.pkl
         """
         # Get the filename
         filename = split(f)[-1][:-4]
-        pyramid_file = join(data_dir, "py_temp.pkl")
-        classif_file = join(data_dir, filename+"_classif.pkl")
+        c_temp = join(temp_dir, "classif_temp.pkl")
+        p_temp = join(temp_dir, "py_temp.pkl")
 
         # Loading the pyramid dict
-        if not isfile(pyramid_file):
-            print pyramid_file, "is not a valid file"
+        if not isfile(p_temp):
+            print p_temp, "is not a valid file"
             sys.exit(1)
-        if not isfile(classif_file):
-            print classif_file, "is not a valid file"
+        if not isfile(c_temp):
+            print c_temp, "is not a valid file"
             sys.exit(1)
 
-        with open(classif_file, "rb") as c_file:
+        with open(c_temp, "rb") as c_file:
             classifications = cPickle.load(c_file)
-        print "classif", len(classifications)
-        indices = []
 
-        ######### NMS ###########
-        if options.nms:
-            with open(pyramid_file, "rb") as p_file:
+        # NMS
+        if nms:
+            with open(p_temp, "rb") as p_file:
                 pyramid = cPickle.load(p_file)
             probs = {}
             for i in classifications:
                 probs[i] = classifications[i][4]
             # Apply NMS
-            print "Applying nonMaxSuppression"
-            cleaned_results = self.nonMaxSuppression(pyramid, \
-                            probs)
+            cleaned_results = self.nonMaxSuppression(pyramid, probs)
         else:
             cleaned_results = classifications
-        with open(join(data_dir, filename + "_clean.pkl"), "wb") as results_file:
-            cPickle.dump(cleaned_results, results_file)
-        return 0
+        #print "Processed", filename
+        if not nms:
+            with open(join(temp_dir, filename + "_clean.pkl"), "wb") as r_file:
+                cPickle.dump(cleaned_results, r_file)
+            #print "\tWrote at", join(temp_dir, filename + "_clean.pkl")
+            return []
+        else:
+            return cleaned_results
 
-
-
-
-    def writeResults(self, files, data_dir, output_file):
+    def writeResults(self, files, temp_dir, output_file, nms, results=[]):
         """
         Write classification to a file.
         This file aims at being read for FDDB test.
@@ -349,34 +350,43 @@ class PatchExtractor():
         -------------------------------------------
         classifications = list /
         classifications[0] = [f,x,y,w,h,p(face)]
+        -------------------------------------------
+        Reads :
+            <temp_dir>/<filename>_clean.pkl
         """
         # Checking sizes
         c = 0
+        ind = 0
         indices = {}
         patches_per_file = {}
         ## Now tranforming results file by file
         for f in files:
-            if not isfile(join(data_dir,f)):
+            if not isfile(join(temp_dir,f)):
                 print "ignoring invalid file :", f
                 continue
-            filename = split(f)[-1][:-4]
-            clean_file = join(data_dir, filename+"_clean.pkl")
-            with open(clean_file, "rb") as c_file:
-                cleaned_results = cPickle.load(c_file)
+            if not nms:
+                filename = split(f)[-1][:-4]
+                clean_file = join(temp_dir, filename+"_clean.pkl")
+                with open(clean_file, "rb") as c_file:
+                    cleaned_results = cPickle.load(c_file)
+            else:
+                cleaned_results = results[ind][1]
+            ind += 1
+
             for e in cleaned_results:
                 # Need to tranform bouding box to fit display
-                c = [ int(i) for i in cleaned_results[e][:4] ]
+                c = [int(i) for i in cleaned_results[e][:4]]
                 c.append(cleaned_results[e][4])
                 if f in patches_per_file:
                     patches_per_file[f].append(c)
                 else:
                     patches_per_file[f] = [c]
                     #[x,y,w,h,p]
-            print "got", len(cleaned_results), "for", filename
+            #print "\tGot", len(cleaned_results), "for", filename
 
         # Write bounding box and prob in the file
         with open(output_file, "wb") as output:
-            print "writing", output_file
+            #print "Writing", output_file
             for e in patches_per_file:
                 # We need to format names to fit FDDB test
                 # We remove /data/lisa/data/faces/FDDB and the extension
@@ -391,16 +401,21 @@ class PatchExtractor():
         return 0
 
 
-    def classify(self, fprop_func, data_dir, f):
+    def classify(self, fprop_func, temp_dir):
+        """
+        classify the data it finds at <temp_dir>
+        Looks for the following files :
+            batch_temp.npy : data of patches
+            batchmeta_temp.pkl : metadata of patches
+        Writes the results at
+            <temp_dir>/classif_temp.pkl
+        """
 
         size_minibatch = 128
-        t0 = time()
-        probs = {}
         info = {}
 
         # Load data from patches
-        filename = split(f)[-1]
-        ba_file = join(data_dir, "batch_temp.npy")
+        ba_file = join(temp_dir, "batch_temp.npy")
         # Always check the file
         if not isfile(ba_file):
             print "can't read", ba_file
@@ -408,41 +423,42 @@ class PatchExtractor():
         # Load data
         batch = np.load(ba_file)
         # Load metadata
-        with open(join(data_dir, "batchmeta_temp.pkl"), "rb") as bm_file:
+        with open(join(temp_dir, "batchmeta_temp.pkl"), "rb") as bm_file:
             batch_meta = cPickle.load(bm_file)
         nb_minibatch = int(ceil(float(len(batch))/float(size_minibatch)))
-        print "nb_minibatch",nb_minibatch,len(batch)/size_minibatch+1
+        #print "\tnb_minibatch :", nb_minibatch
 
         for i in xrange(nb_minibatch):
-            s = range(128*i,min(128*(i+1),len(batch)))
+            s = range(128*i, min(128*(i+1), len(batch)))
             mini_batch = np.array([batch[i] for i in s])
-            mini_batch = np.transpose(mini_batch, (3,1,2,0))
+            mini_batch = np.transpose(mini_batch, (3, 1, 2, 0))
             t = time()
             # Classify returns a couple [p(face), p(non-face)]
             # We'll keep those with p(face)>0.5
             cl = fprop_func(mini_batch)
             for j in s:
-                p =  cl[j%128][0]
+                p = cl[j % 128][0]
                 if p > 0.5:
                     # Add element to the dict of possible faces
                     f, [x, y, s] = batch_meta[j]
                     # Debug verification
                     if type(x) == float or type(y) == float:
-                        print "x",x,"y",y
+                        print "x", x, "y", y
                         print "one is a float, they should be ints"
                         sys.exit(1)
-                    info[j] = ([x, y, int(s*self.size),\
-            int(s*self.size), p])  # [f,x,y,w,h,prob]
+                    info[j] = ([x, y, int(s*self.size),
+                                int(s*self.size), p])  # [f,x,y,w,h,prob]
             dt = time()-t
-            print "Temps par patch :", dt/128.0
+            #print "\tTemps par patch :", dt/128.0
             # Sur simplet : 0.0411s
             # Sur GTX480 : 0.0006s
         # Writing results
-        with open(join(data_dir, filename[:-4]+"_classif.pkl"), "wb") as result_file:
+        with open(join(temp_dir, "classif_temp.pkl"), "wb") as result_file:
             cPickle.dump(info, result_file)
-        print "Wrote results in", join(data_dir,filename[:-4]+"_classif.pkl")
-        print "Wrote a list of", len(info), "elements"
+        #print "\tWrote at", join(temp_dir, "classif_temp.pkl")
+        #print len(info), "elements"
         return 0
+
 
 def getModel(model_file):
     """
@@ -590,11 +606,6 @@ def testRealCases():
             isfile(join(folder, f))]
     print files
 
-    ### Define used files
-    modelfile = "../models/facedataset_conv2d_2.pkl"
-    classif_file = "classif.pkl"  # Can grow large
-    pyramid_file = "pyramids.pkl"  # Can grow large
-    output_file = "outputForFDDB.txt"
 
     ### Classify
     p2 = classify(modelfile, files, patch_extractor)
@@ -608,87 +619,4 @@ def testRealCases():
     print "Display results"
     print "-"*30
     displayResults(prefix, output_file)
-
-######### Arguments ##############
-
-#Non Images
-parser = OptionParser()
-parser.add_option("--nms", action="store_true", dest="nms",default=False)
-(options, args) = parser.parse_args()
-print "Non-max Suppression :", options
-
-## Define the patch_extractor
-size = 48
-scales = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3, 4]
-#scales = [1,2]
-stride = 24
-print "Input size :", size
-print "Stride :", stride
-print "Scales :", scales
-p_e = PatchExtractor(size, scales, stride)
-
-"""### Look for the images
-list_file = args[0]
-prefix = args[1]
-files = []
-with open(list_file,"rb") as l_file:
-    for line in l_file:
-        files.append(join(prefix, line[:-1])+".jpg")
-print "got", len(files), "files"
-#files = [files[0]]
-print files[:2]
-"""
-# Using FDDB interface by Thomas Rohee
-fddb = FDDB.FDDB()
-print "Nombre de fichiers :", len(fddb)
-model_file = "../models/facedataset_700k_0408.pkl"
-classif_file = "classif.pkl"  # Can grow large
-data_dir = "/data/lisatmp3/chassang/facedet/patches"  # Can grow large
-output_file = "outputForFDDB.txt"
-
-########## Pipeline is now used one file at a time
-# 1. Get the model
-print "-"*30
-print "Defining the classifier"
-model = getModel(model_file)
-
-# 2. Loop over files to extract and classify
-#    Temp files are rewritten to limit mem usage
-
-for i in xrange(10):#len(fddb)):
-    # Get image path
-    f = fddb.get_original_image_path_relative_to_base_directory(i)
-    f = join(fddb.absolute_base_directory, f)
-    print f
-    # 2.1 Extract patches and write them at <data_dir>
-    print "-"*20
-    print "Creating batches"
-    print "-"*20
-    p_e.writePatches(f, data_dir)
-
-    # 2.2 Classify
-    print "-"*20
-    print "Classifying"
-    print "-"*20
-    p_e.classify(model, data_dir, f)
-
-    # 2.3 Format results
-    print "-"*20
-    print "Formatting"
-    print "-"*20
-    p_e.formatResults(data_dir, f)
-
-# 3. Write results for FDDB
-#    Perform NMS if specified
-print "-"*20
-print "Writing Results and performing NMS"
-print "-"*20
-p_e.writeResults(files[:10], data_dir, output_file)
-
-# 4. Display results
-print "-"*20
-print "Displaying"
-print "-"*20
-displayResults(prefix, output_file)
-
 
