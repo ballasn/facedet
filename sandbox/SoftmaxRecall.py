@@ -90,6 +90,8 @@ class SoftmaxRecall(Layer):
         can be used as the target space. This allows the softmax to compute
         the cost much more quickly than if it needs to convert the targets
         into a VectorSpace.
+    thresholds : Define the thresholds at which will be monitored recall and
+        precision. 0.5 is already recorded by default.
     """
 
     def __init__(self, n_classes, layer_name, irange=None,
@@ -98,7 +100,8 @@ class SoftmaxRecall(Layer):
                  b_lr_scale=None, max_row_norm=None,
                  no_affine=False,
                  max_col_norm=None, init_bias_target_marginals=None,
-                 binary_target_dim=None):
+                 binary_target_dim=None,
+                 thresholds=[]):
 
         super(SoftmaxRecall, self).__init__()
 
@@ -180,43 +183,49 @@ class SoftmaxRecall(Layer):
 
     def get_detection_channels_from_state(self, state, target):
         rval = OrderedDict()
+        # target is a 128x2 vector
+        # p(face), p(non-face) ???
         y_hat = state > 0.5
         y = target > 0.5
-        wrong_bit = T.cast(T.neq(y, y_hat), state.dtype)
 
-        rval['01_loss'] = wrong_bit.mean()
+        real_pos = y.sum(axis=0)
+        pred_pos = y_hat.sum(axis=0)
+        # Beware that if you mean on all axis
+        # You'll get 0.5 as p(face)+p(non-face)=1
         rval['kl'] = self.cost(Y_hat=state, Y=target)
 
         y = T.cast(y, state.dtype)
         y_hat = T.cast(y_hat, state.dtype)
-        tp = (y * y_hat).sum()
-        fp = ((1-y) * y_hat).sum()
+
+        # Sum over the first axis only to get results about positives preds
+        tp = T.cast((y * y_hat).sum(axis=0)[0], 'float32')
+        fp = T.cast(((1-y) * y_hat).sum(axis=0)[0], 'float32')
+
         precision = tp / T.maximum(1., tp + fp)
         recall = tp / T.maximum(1., y.sum())
+        rval['tp'] = tp
+        rval['fp'] = fp
+        # Number of positives per minibatch
+        # Is usually fixed by the dataset interface (64 currently)
+        rval['gt_p'] = T.cast(y.sum(axis=0)[0], 'float32')
 
         rval['precision'] = precision
         rval['recall'] = recall
         rval['f1'] = 2. * precision * recall / T.maximum(1, precision +
                 recall)
-        tp = (y * y_hat).sum(axis=0)
-        fp = ((1-y) * y_hat).sum(axis=0)
-        precision = tp / T.maximum(1., tp + fp)
 
-        rval['per_output_precision.max'] = precision.max()
-        rval['per_output_precision.mean'] = precision.mean()
-        rval['per_output_precision.min'] = precision.min()
+        # Results for the aksed thresholds
+        for e in self.thresholds:
+            y_hat_03 = state > e
+            tp = T.cast((y * y_hat_03).sum(axis=0)[0], 'float32')
+            fp = T.cast(((1-y) * y_hat_03).sum(axis=0)[0], 'float32')
+            precision = tp / T.maximum(1., tp + fp)
+            recall = tp / T.maximum(1., y.sum())
 
-        recall = tp / T.maximum(1., y.sum(axis=0))
-
-        rval['per_output_recall.max'] = recall.max()
-        rval['per_output_recall.mean'] = recall.mean()
-        rval['per_output_recall.min'] = recall.min()
-
-        f1 = 2. * precision * recall / T.maximum(1, precision + recall)
-
-        rval['per_output_f1.max'] = f1.max()
-        rval['per_output_f1.mean'] = f1.mean()
-        rval['per_output_f1.min'] = f1.min()
+            rval['tp_'+str(e)] = tp
+            rval['fp_'+str(e)] = fp
+            rval['precision_'+str(e)] = precision
+            rval['recall_'+str(e)] = recall
 
         return rval
 
