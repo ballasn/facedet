@@ -9,7 +9,7 @@ if __name__ == '__main__':
         print("Usage %s: dataset nb" % sys.argv[0])
         exit(1)
 
-    img_shape = [48, 48, 3]
+    img_shape = [16, 16, 3]
 
 
     dataset = np.load(sys.argv[1])
