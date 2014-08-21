@@ -17,27 +17,27 @@
                  #    irange: .0005,
                  #    max_kernel_norm: 3.9,
                  #},
-                 #!obj:pylearn2.models.mlp.ConvRectifiedLinear {
-                 #    layer_name: 'h1',
-                 #    output_channels: 48,
-                 #    kernel_shape: [3, 3],
-                 #    pool_shape: [2, 2],
-                 #    pool_stride: [1, 1],
-                 #    irange: .005,
-                 #    max_kernel_norm: 7.9,
-                 #},
-                 #"""
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'h1',
+                     output_channels: 48,
+                     kernel_shape: [6, 6],
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     irange: .005,
+                     max_kernel_norm: 7.9,
+                 },
                  !obj:pylearn2.models.mlp.RectifiedLinear {
                      layer_name: 'r2',
                      left_slope: 0,
                      dim: 20,
-                     irange: 0.01
+                     irange: 0.5
                  },
-                 !obj:pylearn2.models.mlp.Softmax {
+                 !obj:SoftmaxRecall.SoftmaxRecall {
                      max_col_norm: 1.9365,
                      layer_name: 'y',
                      n_classes: 2,
-                     irange: .05
+                     irange: .05,
+                     thresholds: [0.25, 0.4]
                  }
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
@@ -49,7 +49,7 @@
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         learning_rate: .000001,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
-            init_momentum: 0.05,
+            init_momentum: 0.1,
         },
         train_iteration_mode: 'batchwise_shuffled_sequential',
         monitor_iteration_mode: 'even_sequential',
@@ -78,6 +78,6 @@
                  save_path: "/data/lisatmp3/chassang/facedet/simple_best_model.pkl"
             }
     ],
-    save_path: "simple_net.pkl",
+    save_path: "./100k_simple/20d_05pre.pkl",
     save_freq: 5
 }
