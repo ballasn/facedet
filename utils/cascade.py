@@ -289,6 +289,153 @@ class PatchExtractor():
         # Return the list of [x,y,w,h,p] of patches that are local maxima
         return local_maxima
 
+    def nonMaxSuppression_(self, predictions):
+        """
+        Version for the multidim softmax
+        The pred pyramid contain probs not indices
+        """
+        local_maxima = {}
+        pyramid = copy.copy(predictions)
+        for s in pyramid:
+            for i in xrange(len(pyramid[s])):
+                for j in xrange(len(pyramid[s][i])):
+                    #print "sij",s,i,j,
+                    s_d = s
+                    i_d = i
+                    j_d = j
+                    center = pyramid[s][i][j]
+                    if center == 0.0:
+                        continue
+                    local_max = True
+
+                    # Define the center patch
+                    p_x = i*s*self.stride
+                    p_y = j*s*self.stride
+                    p = [p_x, p_y, p_x + s*self.size, p_y + s*self.size]
+                    #print "center bbox",p
+                    #print "center score",c
+                    nei = []
+
+                    # Test the neighbourhood at all scales
+                    for s_test in pyramid:
+                        if not local_max:
+                            break
+                        #print s_test
+                        i_t = 0
+                        j_t = 0
+                        size_t = s_test * self.size
+                        stride_t = s_test * self.stride
+                        p_test = [0, 0, size_t, size_t]
+                        indices = []
+                        maxi, maxj = 0, 0
+                        # Scan new scale until overlap
+                        while not overlap(p, p_test):
+                            if i_t == len(pyramid[s_test]):
+                                break
+                            elif j_t == len(pyramid[s_test][i_t]):
+                                j_t = 0
+                                i_t += 1
+                                maxi = max(maxi, i_t)
+                            else:
+                                j_t += 1
+                                maxj = max(maxj, j_t)
+                            p_x_t = i_t*stride_t
+                            p_y_t = j_t*stride_t
+                            p_test = [p_x_t, p_y_t, p_x_t + size_t, p_y_t + size_t]
+                            indices.append(p_test)
+                            # Moving on x-axis
+                        #if s==s_test:
+                            #print "p_test",
+                            #print p_test
+
+                        if i_t==len(pyramid[s_test]) or \
+                                j_t==len(pyramid[s_test][i_t]):  # no overlap
+                            print "_"*20
+                            print "no overlap found"
+                            print p
+                            print "s,  i,  j"
+                            print s, i, j
+                            print "s_test,i_t,j_t"
+                            print s_test, i_t, j_t
+                            print maxi,maxj
+                            print "len py[s_test],py[s_test][i_t]"
+                            print \
+                            len(pyramid[s_test]),len(pyramid[s_test][i_t-1])
+                            print "len py[s],py[s][i]"
+                            print \
+                            len(pyramid[s]),len(pyramid[s][i])
+                            # print indices
+                            print "Stopping program at line 194"
+                            sys.exit(1)
+
+                        p_test_var = copy.copy(p_test)
+                        di = 0
+                        dj = 0
+
+                            # Loop over x-axis
+                        while overlap(p, p_test_var) and \
+                                i_t + di < len(pyramid[s_test]):
+                            if not local_max:
+                                break
+
+                            # Loop over y-axis
+                            while overlap(p, p_test_var) and \
+                                    j_t + dj < len(pyramid[s_test][i_t]):
+                                if not local_max:
+                                    break
+
+                                # Compare neighbour and center
+                                if (s, i, j) == (s_test, i_t+di, j_t+dj):
+                                    #print (s,i,j), (s_test, i_t+di, j_t+dj)
+                                    p_test_var = [p_test[0] + di*stride_t,
+                                                  p_test[1] + dj*stride_t,
+                                                  p_test[2] + di*stride_t,
+                                                  p_test[3] + dj*stride_t]
+                                    #print "found myself",p_test_var
+                                    dj += 1
+
+                                else:
+                                    neighbour = pyramid[s_test][i_t+di][j_t+dj]
+
+                                    if center >= neighbour:
+                                        pyramid[s_test][i_t+di][j_t+dj] = 0.0
+                                    else: # This isn't a local max
+                                        #print "isn't a local max"
+                                        #print "-----------------"
+                                        pyramid[s][i][j] = 0.0
+                                        local_max = False
+                                    # Next patch on y-axis
+                                    dj += 1
+                                    p_test_var = [p_test[0] + di*stride_t,
+                                                  p_test[1] + dj*stride_t,
+                                                  p_test[2] + di*stride_t,
+                                                  p_test[3] + dj*stride_t]
+                                # Next patch on x-axis
+                            dj = 0
+                            di += 1
+                            p_test_var = [p_test[0] + di*stride_t,
+                                          p_test[1] + dj*stride_t,
+                                          p_test[2] + di*stride_t,
+                                          p_test[3] + dj*stride_t]
+
+                        # center passed tests in its neighbourhood
+                        # It's a local max
+                        # Store it as [x,y,w,h,p]
+                    #print "sij fin",s,i,j
+                    if (s,i,j)!=(s_d,i_d,j_d):
+                        print (s,i,j),"should be",(s_d,i_d,j_d)
+                        sys.exit(1)
+                    if local_max:
+                        #print center, [p_x, p_y, int(s*self.size),
+                                #int(s*self.size)]
+                        #print p
+                        local_maxima[center] = [p_x, p_y, int(s*self.size),
+                            int(s*self.size), center]
+                        #print "---------------------- > is a Local Max"
+        # Return the list of [x,y,w,h,p] of patches that are local maxima
+        return pyramid
+
+
     def formatResults(self, f, temp_dir, nms):
         """
         This function formats the result, so that
