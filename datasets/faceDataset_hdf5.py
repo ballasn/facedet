@@ -6,6 +6,7 @@ import numpy as np
 import random
 import thread
 import time
+import sys
 try:
     import tables
 except ImportError:
@@ -30,9 +31,9 @@ class faceDataset(dataset.Dataset):
                  positive_samples,
                  negative_samples,
                  which_set,
-                 ratio = 0.8,
-                 batch_size = 128,
-                 axes = ('c', 0, 1, 'b')):
+                 ratio=0.8,
+                 batch_size=128,
+                 axes=('c', 0, 1, 'b')):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -42,94 +43,124 @@ class faceDataset(dataset.Dataset):
         """
 
         ### Load data
-        self.positive_h5file = tables.openFile(positive_samples, mode = "r")
+        self.positives_h5file = tables.openFile(positive_samples, mode="r")
         self.positives = self.positives_h5file.getNode('/', "denseFeat")
 
-        self.negatives_h5file = tables.openFile(negatives_samples, mode = "r")
-        self.negatives = self.positives_h5file.getNode('/', "denseFeat")
-
-
+        self.negatives_h5file = tables.openFile(negative_samples, mode="r")
+        self.negatives = self.negatives_h5file.getNode('/', "denseFeat")
+        print "done opening hdf5 files"
         if which_set == 'train':
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives_shape = (nb_train, self.negatives.shape[1])
-
-            print "positives train shape", self.positives_shape
-            print "negatives train shape", self.negatives_shape
+            self.start_pos = 0
+            self.start_neg = 0
 
         elif which_set == 'valid':
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
+            nb_train = int(np.ceil((1.0-ratio) * self.positives.shape[0]))
+            start_ = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
+            # We don't slice arrays to reduce memory usage]
+            # start indicates the index at which starts the validation set
+            self.start_pos = start_
+            nb_train = int(np.ceil((1.0-ratio) * self.negatives.shape[0]))
+            start_ = int(np.ceil(ratio * self.positives.shape[0]))
             self.negatives_shape = (nb_train, self.negatives.shape[1])
+            self.start_neg = start_
 
-            print "positives valid shape", self.positives_shape
-            print "negatives valid shape", self.negatives_shape
-
+        print "done defining positives and negatives"
 
 
         ### nb_pos and nb_neg must be divisible by batch_size / 2
-        batch_size = batch_size / 2
+        #batch_size = batch_size / 2
         self.nb_pos = self.positives_shape[0]
         self.nb_neg = self.negatives_shape[0]
-        assert self.nb_pos % batch_size == 0
-        assert self.nb_neg % batch_size == 0
 
+        self.nb_pos = self.nb_pos - self.nb_pos % batch_size
+        self.nb_neg = self.nb_neg - self.nb_neg % batch_size
         # self.img_shape = [48, 48, 3]
         # Compute img_shape, assuming square images in RGB
         size = int(sqrt(self.positives_shape[1] / 3))
         self.img_shape = [size, size, 3]
         print "image shape :", self.img_shape
-        self.nb_examples = self.positives_shape[0] + self.negatives_shape[0]
+        self.nb_examples = self.nb_pos + self.nb_neg
         self.which_set = which_set
         self.axes = axes
+        print "positives valid shape", self.positives_shape
+        print "negatives valid shape", self.negatives_shape
 
 
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
                       data_specs, return_tuple):
 
-
-        ### Initialize data
+        # Initialize data
         x = np.zeros([minibatch_size, self.positives_shape[1]],
-                     dtype = "float32")
+                     dtype="float32")
         y = np.zeros([minibatch_size, 2],
                      dtype="float32")
 
-
-        ### Get number of positives and negatives examples
-        #nb_pos = int(0.5 * minibatch_size)
+        # Get number of positives and negatives examples
+        # nb_pos = int(0.5 * minibatch_size)
         nb_pos = int(np.random.rand() * minibatch_size)
-        #print nb_pos,
         nb_neg = minibatch_size - nb_pos
 
-        ### nb_examples must be divisible by minibatch_size
+        # nb_examples must be divisible by minibatch_size
+        too_many_neg = cur_negatives + nb_neg >= self.nb_neg
+        too_many_pos = cur_positives + nb_pos >= self.nb_pos
+        # In this case, we need to res
+        if too_many_neg and too_many_pos:
+            nb_neg = self.nb_neg - cur_negatives
+            nb_pos = minibatch_size - nb_neg
+            cur_pos_ = self.start_pos
+            cur_neg_ = cur_negatives + self.start_neg
 
-        if (cur_negatives + nb_neg >= self.negatives_shape[0]):
-            nb_neg = self.negatives_shape[0] - cur_negatives
-            nb_pos =  minibatch_size - nb_neg
-        if (cur_positives + nb_pos >= self.positives_shape[0]):
-            nb_pos = self.positives_shape[0] - cur_positives
-            nb_neg =  minibatch_size - nb_pos
 
-        ### Fill minibatch
-        #print "cur_positives, nb_pos, cur_negatives,nb_neg"
-        #print cur_positives, nb_pos, cur_negatives,nb_neg
-        x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
+        elif too_many_neg:
+            nb_neg = self.nb_neg - cur_negatives
+            nb_pos = minibatch_size - nb_neg
+            cur_pos_ = cur_positives + self.start_pos
+            cur_neg_ = cur_negatives + self.start_neg
+
+        elif too_many_pos:
+            nb_pos = self.nb_pos - cur_positives
+            nb_neg = minibatch_size - nb_pos
+            cur_pos_ = cur_positives + self.start_pos
+            cur_neg_ = cur_negatives + self.start_neg
+        else:
+            # Setting the real starting point
+            cur_pos_ = cur_positives + self.start_pos
+            cur_neg_ = cur_negatives + self.start_neg
+
+        assert nb_pos + nb_neg == minibatch_size
+
+        # Fill minibatch
+        # cur_pos_ represent the real index on the array
+        # whereas cur_positives is the one on the subest of the corresponding
+        # class in the dataset (train or valid)
+
+        try:
+            x[0:nb_pos, :] = self.positives[cur_pos_: cur_pos_ + nb_pos, :]
+        except ValueError:
+            print "nb_pos",nb_pos
+            print "size of self.pos",
+            print self.positives[cur_pos_: cur_pos_ + nb_pos, :].shape
+            sys.exit(1)
         y[0:nb_pos, 0] = 1
-        x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_negatives:cur_negatives+nb_neg, :]
+        try:
+            x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_neg_: cur_neg_ + nb_neg, :]
+        except ValueError:
+            print "nb_neg", nb_neg
+            print "size of self.neg",
+            print self.negatives[cur_neg_: cur_neg_ + nb_neg, :].shape
+            sys.exit(1)
         y[nb_pos:nb_pos+nb_neg, 1] = 1
 
         x = np.reshape(x, [minibatch_size] + self.img_shape)
-        #print x[0].shape
-        #cv2.imshow("positif",np.asarray(x[0],dtype=np.uint8))
-        #cv2.imshow("negatif",np.asarray(x[nb_pos],dtype=np.uint8))
-        #cv2.waitKey(0)
         x = np.swapaxes(x, 0, 3)
         cur_positives += nb_pos
         cur_negatives += nb_neg
-        ### Displaying pictures to check that pos!=neg
 
         return (x, y), cur_positives, cur_negatives
 
@@ -199,6 +230,9 @@ class FaceIterator:
 
         self._batch_size = batch_size
         self._num_batches = int(num_batches)
+        # To differentiate train and valid
+        self._start_pos = dataset.start_pos
+        self._start_neg = dataset.start_neg
         self._cur_pos = 0
         self._cur_neg = 0
         self.stochastic = False
@@ -212,64 +246,73 @@ class FaceIterator:
         self.num_examples = self._dataset_size # Needed by Dataset interface
         print self.num_examples
 
-
     def __iter__(self):
         return self
 
     def next(self):
         if self._cur_pos >= self._num_pos and self._cur_neg >= self._num_neg:
-            print "stopIteration :"
-            print self.num_examples
-            print self._num_batches
+            print "stopIteration :",
+            print self.num_examples,"ex",
+            print self._num_batches,"batches"
             raise StopIteration()
         else:
             data, self._cur_pos, self._cur_neg = \
-                self._dataset.get_minibatch(self._cur_pos, self._cur_neg,
+                self._dataset.get_minibatch(self._cur_pos,
+                                            self._cur_neg,
                                             self._batch_size, self._data_specs,
                                             self._return_tuple)
             return data
 
 
+if __name__ == "__main__":
+    pos = "/data/lisatmp3/chassang/facedet/96/pos96.hdf"
+    neg = "/data/lisatmp3/chassang/facedet/96/neg96.hdf"
 
-if __name__=="__main__":
-    pos = "/data/lisatmp3/ballasn/facedet/positives.npy"
-    neg = "/data/lisatmp3/ballasn/facedet/negatives.npy"
     print "instantiating datasets"
-    fd_train = faceDataset(pos,neg,"train")
-    fd_test = faceDataset(pos,neg,"valid")
+    fd_train = faceDataset(pos, neg, "train")
+    fd_test = faceDataset(pos, neg, "valid")
     print "Done, now the iterator"
     print type(fd_train)
     print type(fd_test)
     fi_train = FaceIterator(dataset=fd_train, batch_size=128)
     fi_test = FaceIterator(dataset=fd_test, batch_size=128)
+    print fi_test._cur_pos, fi_test._cur_neg
+    print fi_train._cur_pos, fi_train._cur_neg
     b_train = fi_train.next()
     b_test = fi_test.next()
     print b_train[0].shape
     print b_train[1].shape
-    x_train, y_train =  b_train[0], b_train[1]
+    x_train, y_train = b_train[0], b_train[1]
     x_test, y_test = b_test[0], b_test[1]
-
-    print x_train.shape
+    print "train xy",
+    print x_train.shape,
     print y_train.shape
-    print x_test.shape
+    print "test xy",
+    print x_test.shape,
     print y_test.shape
 
 
-    for i,(e,f) in enumerate(zip(y_train,y_test)):
-            print e,f
-
-    x_test = np.swapaxes(x_test,0,3)
-    x_train = np.swapaxes(x_train,0,3)
-    print x_test.shape
+    x_test = np.swapaxes(x_test, 0, 3)
+    x_train = np.swapaxes(x_train, 0, 3)
+    print "x test, train swapped",
+    print x_test.shape,
     print x_train.shape
 
-    for j in xrange(10):
-        print "-"*10
-        print j
-        print "-"*10
-        for i,(e,f) in enumerate(zip(x_train,x_test)):
-            if np.array_equal(e,f):
-                print i
+    eq = True
+    fi_train._cur_pos = 500000
+    fi_train._cur_neg = 500000
+    for i, e in enumerate(fi_train):
+        if i%100 ==0:
+            sys.stdout.write('\r'+str(i))
+            sys.stdout.flush()
+        if e[0].shape[3] != 128:
+            print e[0].shape, i
+            sys.exit(1)
+    print ""
+    if not eq:
+        print "train and valid batches were completely different"
+
+
     b_train = fi_train.next()
     b_test = fi_test.next()
     x_train, y_train =  b_train[0], b_train[1]
@@ -277,15 +320,4 @@ if __name__=="__main__":
     x_test = np.swapaxes(x_test,0,3)
     x_train = np.swapaxes(x_train,0,3)
     print "."
-
-
-
-
-    # print "next()"
-    # fi.next()
-    # print "next()"
-    # fi.next()
-    # print "next()"
-    # fi.next()
-
 
