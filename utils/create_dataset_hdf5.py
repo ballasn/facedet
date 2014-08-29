@@ -36,7 +36,7 @@ def create_positives_sample(img_list,
             nb_box += bbox.shape[0]
     """
 
-    nb_box = 700000
+    nb_box = 699904
 
     ### Create hdf output
     f = tables.openFile(output, 'w')
@@ -48,12 +48,13 @@ def create_positives_sample(img_list,
                           hdf_shape, filters=filters)
 
     cur = 0
+    tot = len(img_list)
     for img in img_list:
         #print cur, img, nb_box
         if cur >= len(data):
             break
         if cur % 100 == 0:
-            sys.stdout.write("\r"+str(cur))
+            sys.stdout.write("\r"+str(cur)+"/"+str(tot))
             sys.stdout.flush()
 
         ### Get image filenames
@@ -157,6 +158,9 @@ def create_negative_sample(img_list,
     t1 = 0
     t2 = 0
     t0 = time()
+    if nb_samples % 128 != 0:
+        nb_samples = nb_samples - (nb_samples % 128)
+
     while cur < nb_samples:
         if cur % 100 == 0 and cur != 0 and cur != chkpt_print:
             chkpt_print = cur
