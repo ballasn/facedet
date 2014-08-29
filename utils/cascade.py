@@ -348,8 +348,8 @@ class PatchExtractor():
                             #print "p_test",
                             #print p_test
 
-                        if i_t==len(pyramid[s_test]) or \
-                                j_t==len(pyramid[s_test][i_t]):  # no overlap
+                        if i_t == len(pyramid[s_test]) or \
+                                j_t == len(pyramid[s_test][i_t]):  # no overlap
                             print "_"*20
                             print "no overlap found"
                             print p
