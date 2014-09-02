@@ -43,6 +43,8 @@ class faceDataset(dataset.Dataset):
         The current ratio is 0.8 => train 80%, valid 20%
         """
         self.positives =  np.load(positive_samples)
+        self.negatives = np.load(negative_samples)
+        self.inactives = np.zeros(self.negatives.shape)
         # This will be used as a mask
 
         # Remove negative example already discarded by previous layer in
@@ -51,16 +53,11 @@ class faceDataset(dataset.Dataset):
             # Numpy.delete creates a copy of the iarray, not possible here.
             # We just set up a mask
             inactives_ = np.load(inactive_examples)
-            self.negatives = np.load(negative_samples)
             ex_size = self.negatives.shape[1]
-            self.inactives = np.zeros(self.negatives.shape)
             self.inactives[inactives_,:] = 1
-            # self.negatives = np.delete(self.negatives, inactive_idx, axis=0)
-            self.negatives = ma.array(data=self.negatives,
-                    mask=self.inactives)
 
-        else:
-            self.negatives = np.load(negative_samples)
+        self.negatives = ma.array(data=self.negatives,
+                    mask=self.inactives)
 
         if which_set == 'train':
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
@@ -139,7 +136,10 @@ class faceDataset(dataset.Dataset):
         x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
         y[0:nb_pos, 0] = 1
         # We need to access only the good ones
-        x[nb_pos:nb_pos+nb_neg, :] = self.negatives[~self.negatives.mask].data[cur_negatives:cur_negatives+nb_neg, :]
+        size = self.negatives.mask.shape[1]
+        length = self.negatives.count(axis=0)[0]
+        x[nb_pos:nb_pos+nb_neg, :] =\
+        np.reshape(self.negatives.compressed(), (length, size) )[cur_negatives:cur_negatives + nb_neg, :]
         y[nb_pos:nb_pos+nb_neg, 1] = 1
 
         x = np.reshape(x, [minibatch_size] + self.img_shape)
