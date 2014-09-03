@@ -6,21 +6,22 @@ import os
 import numpy as np
 
 # Defining the possible values of the layer parameters
+range1 = lambda start, end: range(start, end+1)
+
 inputDim = [16, 16]
-NL_rng = [1,4]
-num_channels_rng = [ 16,  32,  48,  64,  80,  96, 112, 128, 144, 160, 176, 192, 208,\
-		    224, 240, 256, 272, 288, 304]
-num_pieces_rng = [1, 4]
-kernel_shape_rng = [3,8]
-pool_shape_rng = [2,8]
-pool_stride_rng = [1,2]
+NL_rng = range1(1,4)
+num_channels_rng = [16,  32,  48,  64,  80,  96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
+num_pieces_rng = range1(1,4)
+kernel_shape_rng = range1(3,8)
+pool_shape_rng = range1(2,8)
+pool_stride_rng = range1(1,2)
 max_kernel_norm_rng = [0.9, 1.9, 2.9]
 
 # Defining the possible values of the global parameters
 batch_size_rng = [32, 64, 128, 256, 512]
-lr_rng = [0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
-max_epochs_rng = [10,100]
-mom_rng = [0.1, 0.3, 0.5, 0.7, 0.9, 0.95]
+lr_rng = [0.000001, 1]
+max_epochs_rng = [10,10000]
+mom_rng = [0.1, 1.0]
 
 # Defining yalm template
 yamlTemplate = """
@@ -85,8 +86,8 @@ yamlTemplate = """
 def sampleHyperparam(val_rng, stype="uniform"):
   if stype == "uniform":
     randValue = random.randint(val_rng[0], val_rng[1])
-  elif stype == "log":
-    logRandValue = random.randint(math.log(val_rng[0]), math.log(val_rng[1]))
+  elif stype == "loguniform":
+    logRandValue = random.uniform(math.log(val_rng[0]), math.log(val_rng[1]))
     randValue = math.exp(logRandValue)
   elif stype == "discrete":
     idx = random.randint(0, len(val_rng)-1)
@@ -180,10 +181,10 @@ if __name__ == '__main__':
       # Sample hyperparameters
       hyperparams = {        
         # Sample global parameters 
-        'num_CL' : sampleHyperparam(NL_rng,"uniform"),
-        'learning_rate' : sampleHyperparam(lr_rng,"discrete"),
-        'momentum' : sampleHyperparam(mom_rng,"discrete"),
-        'max_epochs' : sampleHyperparam(max_epochs_rng,"uniform"),
+        'num_CL' : sampleHyperparam(NL_rng,"discrete"),
+        'learning_rate' : sampleHyperparam(lr_rng,"loguniform"),
+        'momentum' : sampleHyperparam(mom_rng,"loguniform"),
+        'max_epochs' : sampleHyperparam(max_epochs_rng,"loguniform"),
         'batch_size' : sampleHyperparam(batch_size_rng,"discrete")
       }  
             
@@ -194,22 +195,22 @@ if __name__ == '__main__':
 	name = 'C%i'% l
 	layerparams = {
 	  name +'_num_channels' : sampleHyperparam(num_channels_rng,"discrete"),
-	  name +'_kernel_shape' : sampleHyperparam(kernel_shape_rng,"uniform"),
+	  name +'_kernel_shape' : sampleHyperparam(kernel_shape_rng,"discrete"),
 	}
 	
-	detect = [layerIn[0]-layerparams[name +'_kernel_shape']+1,layerIn[1]-layerparams[name +'_kernel_shape']+1]
-	pool_shape_rng = [min(pool_shape_rng[0],detect[0]),\
-			  min(pool_shape_rng[1],detect[1])]
+	detect = [int(layerIn[0]-layerparams[name +'_kernel_shape']+1),int(layerIn[1]-layerparams[name +'_kernel_shape']+1)]
+	pool_shape_rng = range1(min(min(pool_shape_rng),detect[0]),\
+			  min(max(pool_shape_rng),detect[1]))	  	
 
 	layerparams.update({
-	  name +'_num_pieces' : sampleHyperparam(num_pieces_rng,"uniform"),
-	  name +'_pool_shape' : sampleHyperparam(pool_shape_rng,"uniform")
+	  name +'_num_pieces' : sampleHyperparam(num_pieces_rng,"discrete"),
+	  name +'_pool_shape' : sampleHyperparam(pool_shape_rng,"discrete")
 	})
 	
-	pool_stride_rng = [min(pool_shape_rng[0], layerparams[name+'_pool_shape']),min(pool_shape_rng[1], layerparams[name+'_pool_shape'])]
+	pool_stride_rng = range1(min(min(pool_shape_rng), layerparams[name+'_pool_shape']),min(max(pool_shape_rng), layerparams[name+'_pool_shape']))
 	
 	layerparams.update({
-	  name +'_pool_stride' : sampleHyperparam(pool_stride_rng,"uniform"),
+	  name +'_pool_stride' : sampleHyperparam(pool_stride_rng,"discrete"),
 	  name +'_max_kernel_norm' : sampleHyperparam(max_kernel_norm_rng,"discrete")
 	})
 	hyperparams.update(layerparams)
@@ -232,7 +233,7 @@ if __name__ == '__main__':
         f.write(yamlContent)
         f.close()
         
-      try:    
+      #try:    
 	print "Loading model"
 	with open(filename, "r") as fp:
 	  model = yaml_parse.load(fp)
@@ -240,5 +241,5 @@ if __name__ == '__main__':
 	# Train
 	print "Training model"
 	model.main_loop()
-      except:
-	print "Trial "+str(i)+" failed."
+      #except:
+	#print "Trial "+str(i)+" failed."
