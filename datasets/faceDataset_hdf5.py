@@ -42,13 +42,14 @@ class faceDataset(dataset.Dataset):
         The current ratio is 0.8 => train 80%, valid 20%
         """
 
-        ### Load data
+        # Load data
         self.positives_h5file = tables.openFile(positive_samples, mode="r")
         self.positives = self.positives_h5file.getNode('/', "denseFeat")
 
         self.negatives_h5file = tables.openFile(negative_samples, mode="r")
         self.negatives = self.negatives_h5file.getNode('/', "denseFeat")
         print "done opening hdf5 files"
+
         if which_set == 'train':
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
@@ -61,11 +62,12 @@ class faceDataset(dataset.Dataset):
             nb_train = int(np.ceil((1.0-ratio) * self.positives.shape[0]))
             start_ = int(np.ceil(ratio * self.positives.shape[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
-            # We don't slice arrays to reduce memory usage]
+            # We don't slice arrays to reduce memory usage
             # start indicates the index at which starts the validation set
             self.start_pos = start_
+
             nb_train = int(np.ceil((1.0-ratio) * self.negatives.shape[0]))
-            start_ = int(np.ceil(ratio * self.positives.shape[0]))
+            start_ = int(np.ceil(ratio * self.negatives.shape[0]))
             self.negatives_shape = (nb_train, self.negatives.shape[1])
             self.start_neg = start_
 
@@ -76,23 +78,19 @@ class faceDataset(dataset.Dataset):
         #batch_size = batch_size / 2
         self.nb_pos = self.positives_shape[0]
         self.nb_neg = self.negatives_shape[0]
-        print (self.nb_pos, self.nb_neg), (self.nb_pos + self.nb_neg) %\
-        batch_size
 
         self.nb_pos = self.nb_pos - self.nb_pos % batch_size
         self.nb_neg = self.nb_neg - self.nb_neg % batch_size
-        print (self.nb_pos, self.nb_neg), (self.nb_pos + self.nb_neg) %\
-        batch_size
-        # self.img_shape = [48, 48, 3]
+
         # Compute img_shape, assuming square images in RGB
         size = int(sqrt(self.positives_shape[1] / 3))
         self.img_shape = [size, size, 3]
-        print "image shape :", self.img_shape
         self.nb_examples = self.nb_pos + self.nb_neg
         self.which_set = which_set
         self.axes = axes
-        print "positives valid shape", self.positives_shape
-        print "negatives valid shape", self.negatives_shape
+        print "Image shape :", self.img_shape
+        print "Positives shape", self.positives_shape
+        print "Negatives shape", self.negatives_shape
 
 
     def get_minibatch(self, cur_positives, cur_negatives,
@@ -111,13 +109,17 @@ class faceDataset(dataset.Dataset):
         nb_neg = minibatch_size - nb_pos
 
         # nb_examples must be divisible by minibatch_size
+
         if (cur_negatives + nb_neg >= self.nb_neg):
             nb_neg = self.nb_neg - cur_negatives
             nb_pos = minibatch_size - nb_neg
+
+
         if (cur_positives + nb_pos >= self.nb_pos):
             nb_pos = self.nb_pos - cur_positives
             nb_neg = minibatch_size - nb_pos
 
+        # Absolute indices
         cur_pos_ = cur_positives + self.start_pos
         cur_neg_ = cur_negatives + self.start_neg
 
@@ -125,35 +127,17 @@ class faceDataset(dataset.Dataset):
         assert nb_pos >= 0
         assert nb_neg >= 0
 
-        # Fill minibatch
-        # cur_pos_ represent the real index on the array
-        # whereas cur_positives is the one on the subest of the corresponding
-        # class in the dataset (train or valid)
-
-        try:
-            x[0:nb_pos, :] = self.positives[cur_pos_: cur_pos_ + nb_pos, :]
-        except ValueError:
-            print "nb_pos",nb_pos
-            print "size of self.pos",
-            print self.positives[cur_pos_: cur_pos_ + nb_pos, :].shape
-            print "-"*20
-            print "sys.exit(1)"
-            sys.exit(1)
+        # Writing positive examples
+        x[0:nb_pos, :] = self.positives[cur_pos_: cur_pos_ + nb_pos, :]
         y[0:nb_pos, 0] = 1
 
-        try:
-            x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_neg_: cur_neg_ + nb_neg, :]
-        except ValueError:
-            print "nb_neg", nb_neg
-            print "size of self.neg",
-            print self.negatives[cur_neg_: cur_neg_ + nb_neg, :].shape
-            print "-"*20
-            print "sys.exit(1)"
-            sys.exit(1)
-        y[nb_pos:nb_pos+nb_neg, 1] = 1
+        x[nb_pos: nb_pos + nb_neg, :] = self.negatives[cur_neg_: cur_neg_
+                + nb_neg, :]
+        y[nb_pos: nb_pos + nb_neg, 1] = 1
 
         x = np.reshape(x, [minibatch_size] + self.img_shape)
         x = np.swapaxes(x, 0, 3)
+
         cur_positives += nb_pos
         cur_negatives += nb_neg
 
@@ -236,7 +220,6 @@ class FaceIterator:
         self._data_specs = data_specs
 
         self.num_examples = self._dataset_size # Needed by Dataset interface
-        print self.num_examples
 
     def __iter__(self):
         return self
@@ -254,7 +237,6 @@ class FaceIterator:
                                             self._batch_size, self._data_specs,
                                             self._return_tuple)
             return data
-
 
 if __name__ == "__main__":
     pos = "/data/lisatmp3/chassang/facedet/96/pos96.hdf"
@@ -275,7 +257,6 @@ if __name__ == "__main__":
             if e[0].shape[3] != 128:
                 print e[0].shape, i
                 sys.exit(1)
-        print c
     print ""
     if not eq:
         print "train and valid batches were completely different"
