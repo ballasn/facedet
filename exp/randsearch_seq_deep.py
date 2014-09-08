@@ -10,7 +10,8 @@ range1 = lambda start, end: range(start, end+1)
 
 inputDim = [16, 16]
 NL_rng = range1(1,4)
-num_channels_rng = [16,  32,  48,  64,  80,  96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304]
+num_channels_rng = range1(32,4000)
+num_channels_rng = [x for x in num_channels_rng if x % 16 == 0]
 num_pieces_rng = range1(1,4)
 kernel_shape_rng = range1(3,8)
 pool_shape_rng = range1(2,8)
@@ -23,13 +24,17 @@ lr_rng = [0.000001, 1]
 max_epochs_rng = [10,10000]
 mom_rng = [0.1, 1.0]
 
+scratchdir = "."
+posdata = "/data/lisatmp3/chassang/facedet/16/pos16_100_eq.npy"
+negdata = "/data/lisatmp3/chassang/facedet/16/neg16_100_eq.npy"
+
 # Defining yalm template
 yamlTemplate = """
 !obj:pylearn2.train.Train {
     dataset: &train !obj:datasets.faceDataset.faceDataset {
         which_set: 'train',
-        positive_samples: "/data/lisatmp3/chassang/facedet/16/pos16_100_eq.npy",
-        negative_samples: "/data/lisatmp3/chassang/facedet/16/neg16_100_eq.npy",
+        positive_samples: %(positives)s,
+        negative_samples: %(negatives)s,
         axes: ['c', 0, 1, 'b']
     },
     model: !obj:pylearn2.models.mlp.MLP {
@@ -61,8 +66,8 @@ yamlTemplate = """
                 'train' : *train,
                 'valid' : !obj:datasets.faceDataset.faceDataset {
                         which_set: 'valid',
-                        positive_samples: "/data/lisatmp3/chassang/facedet/16/pos16_100_eq.npy",
-                        negative_samples: "/data/lisatmp3/chassang/facedet/16/neg16_100_eq.npy",
+                        positive_samples: %(positives)s,
+                        negative_samples: %(negatives)s,
                         axes: ['c', 0, 1, 'b'],
                       },
             },
@@ -89,6 +94,10 @@ def sampleHyperparam(val_rng, stype="uniform"):
   elif stype == "loguniform":
     logRandValue = random.uniform(math.log(val_rng[0]), math.log(val_rng[1]))
     randValue = math.exp(logRandValue)
+  elif stype == "loguniformRound":
+    logRandValue = random.uniform(math.log(val_rng[0]), math.log(val_rng[1]))
+    randValue = math.exp(logRandValue)
+    randValue = round(randValue)
   elif stype == "discrete":
     idx = random.randint(0, len(val_rng)-1)
     randValue = val_rng[idx]
@@ -135,15 +144,17 @@ def getYamlFromHyperparams(hyperparams):
         layersYaml += getYamlForConvLayer(hyperparams, "C%i" % i )
         
     # Insert the global hyperparameters
-    yamlContent = yamlTemplate % {'Nb' : hyperparams['batch_size'],
+    yamlContent = yamlTemplate % {'positives' : posdata,
+				  'negatives': negdata,
+				  'Nb' : hyperparams['batch_size'],
 				  'layers' : layersYaml,
 				  'inDim_x': inputDim[0],
 				  'inDim_y': inputDim[1],
                                   'LR' : hyperparams['learning_rate'],
                                   'mom' : hyperparams['momentum'],
                                   'EP' : hyperparams['max_epochs'],
-                                  'outfile_ext' : "./RandSearch/Deep_Results/" + savefile + "_best.pkl",
-                                  'outfile' : "./RandSearch/Deep_Results/" + savefile + ".pkl"}
+                                  'outfile_ext' : scratchdir + "/RandSearch/Deep_Results/" + savefile + "_best.pkl",
+                                  'outfile' : scratchdir + "/RandSearch/Deep_Results/" + savefile + ".pkl"}
     return yamlContent
     
 
@@ -169,7 +180,15 @@ def getFilename(hyperparams):
 
 if __name__ == '__main__':
     
-    trials = 1
+    trials = 5
+    
+    # Create the bashfiles and text files
+    clusterTxt = open("cluster.txt", "w") # Txt file to launch on cluster
+    
+    clusterBash = open("clusterLauncher.sh", "w") # Bash file to launch on cluster
+    clusterBash.write("jobdispatch --gpu --duree=72:0:0 --mem=3G --env=THEANO_FLAGS=device=gpu,floatX=float32,force_device=True --file=cluster.txt")
+    clusterBash.close()  
+    
     
     for i in range(trials):
       
@@ -184,7 +203,7 @@ if __name__ == '__main__':
         'num_CL' : sampleHyperparam(NL_rng,"discrete"),
         'learning_rate' : sampleHyperparam(lr_rng,"loguniform"),
         'momentum' : sampleHyperparam(mom_rng,"loguniform"),
-        'max_epochs' : sampleHyperparam(max_epochs_rng,"loguniform"),
+        'max_epochs' : int(sampleHyperparam(max_epochs_rng,"loguniformRound")),
         'batch_size' : sampleHyperparam(batch_size_rng,"discrete")
       }  
             
@@ -233,13 +252,19 @@ if __name__ == '__main__':
         f.write(yamlContent)
         f.close()
         
-      #try:    
-	print "Loading model"
-	with open(filename, "r") as fp:
-	  model = yaml_parse.load(fp)
+        # Add a new line to the bash file that will launch the jobs on the cluster            
+        clusterTxt.write("train.py " + filename)
+        clusterTxt.write("\n")
+        
+      #try:    list comprehension
+	#print "Loading model"
+	#with open(filename, "r") as fp:
+	  #model = yaml_parse.load(fp)
 
 	# Train
-	print "Training model"
-	model.main_loop()
+	#print "Training model"
+	#model.main_loop()
       #except:
 	#print "Trial "+str(i)+" failed."
+    clusterTxt.close()
+
