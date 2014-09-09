@@ -75,7 +75,7 @@
             },
         cost: !obj:utils.compression.TeacherRegressionCost.TeacherRegressionCost { 
            teacher_path: teacher_best.pkl,
-           relaxation_parameter: 3
+           relaxation_term: 3
         },
         termination_criterion: !obj:pylearn2.termination_criteria.And {
             criteria: [
