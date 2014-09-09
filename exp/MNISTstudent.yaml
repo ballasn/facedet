@@ -14,7 +14,7 @@
                  num_channels: 32,
                  kernel_shape: [5, 5],
                  num_pieces: 2,
-                 pool_shape: [4, 4],
+                 pool_shape: [2, 2],
                  pool_stride: [1, 1],
                  irange: .005,
                  max_kernel_norm: 1.900000,
@@ -25,7 +25,7 @@
                  num_channels: 32,
                  kernel_shape: [5, 5],
                  num_pieces: 2,
-                 pool_shape: [4, 4],
+                 pool_shape: [2, 2],
                  pool_stride: [1, 1],
                  irange: .005,
                  max_kernel_norm: 1.900000,
@@ -36,7 +36,18 @@
                  num_channels: 32,
                  kernel_shape: [5, 5],
                  num_pieces: 2,
-                 pool_shape: [4, 4],
+                 pool_shape: [2, 2],
+                 pool_stride: [1, 1],
+                 irange: .005,
+                 max_kernel_norm: 1.900000,
+                 tied_b: 1
+                 },
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                 layer_name: C4,
+                 num_channels: 32,
+                 kernel_shape: [5, 5],
+                 num_pieces: 2,
+                 pool_shape: [2, 2],
                  pool_stride: [1, 1],
                  irange: .005,
                  max_kernel_norm: 1.900000,
@@ -61,6 +72,7 @@
         init_momentum: .5,
         monitoring_dataset:
             {
+                'train': *train,
                 'valid' : !obj:pylearn2.datasets.mnist.MNIST {
                               which_set: 'train',
                               one_hot: 1,
