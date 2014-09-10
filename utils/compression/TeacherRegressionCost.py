@@ -60,7 +60,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 	# Compute cost
         cost_wrt_y = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
         cost_wrt_teacher = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
-        cost = cost_wrt_y + T.mean(cost_wrt_teacher, axis=1)
+        cost = (1/float(self.relaxation_term))*cost_wrt_y + T.mean(cost_wrt_teacher, axis=1)
         
         return T.mean(cost)
 
