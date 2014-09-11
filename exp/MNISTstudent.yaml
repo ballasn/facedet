@@ -9,49 +9,41 @@
         batch_size: 100,
                 layers: [
                 
-                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
-                 layer_name: C1,
-                 num_channels: 500,
-                 kernel_shape: [5, 5],
-                 num_pieces: 2,
-                 pool_shape: [2, 2],
-                 pool_stride: [1, 1],
-                 irange: .005,
-                 max_kernel_norm: 1.900000,
-                 tied_b: 1
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'C1',
+                     output_channels: 32,
+                     irange: .05,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     max_kernel_norm: 1.9365
                  },
-                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
-                 layer_name: C2,
-                 num_channels: 500,
-                 kernel_shape: [5, 5],
-                 num_pieces: 2,
-                 pool_shape: [2, 2],
-                 pool_stride: [1, 1],
-                 irange: .005,
-                 max_kernel_norm: 1.900000,
-                 tied_b: 1
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'C2',
+                     output_channels: 32,
+                     irange: .05,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     max_kernel_norm: 1.9365
                  },
-                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
-                 layer_name: C3,
-                 num_channels: 500,
-                 kernel_shape: [5, 5],
-                 num_pieces: 2,
-                 pool_shape: [2, 2],
-                 pool_stride: [1, 1],
-                 irange: .005,
-                 max_kernel_norm: 1.900000,
-                 tied_b: 1
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'C3',
+                     output_channels: 32,
+                     irange: .05,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     max_kernel_norm: 1.9365
                  },
-                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
-                 layer_name: C4,
-                 num_channels: 500,
-                 kernel_shape: [5, 5],
-                 num_pieces: 2,
-                 pool_shape: [2, 2],
-                 pool_stride: [1, 1],
-                 irange: .005,
-                 max_kernel_norm: 1.900000,
-                 tied_b: 1
+                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                     layer_name: 'C4',
+                     output_channels: 32,
+                     irange: .05,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     max_kernel_norm: 1.9365
                  },
                  !obj:pylearn2.models.mlp.Softmax {
                      max_col_norm: 1.9365,
@@ -79,11 +71,6 @@
                               start: 50000,
                               stop:  60000
                           },
-                'test'  : !obj:pylearn2.datasets.mnist.MNIST {
-                              which_set: 'test',
-                              one_hot: 1,
-                              stop: 10000
-                          }
             },
         #cost: !obj:utils.compression.TeacherRegressionCost.TeacherRegressionCost { 
          #  teacher_path: teacher_best.pkl,
@@ -92,7 +79,8 @@
         cost: !obj:pylearn2.costs.cost.SumOfCosts { costs: [
             !obj:utils.compression.TeacherRegressionCost.TeacherRegressionCost {
                 teacher_path: teacher_best.pkl,
-                relaxation_term: 1
+                relaxation_term: 3,
+                weight: 0.30
             },
             !obj:pylearn2.costs.mlp.WeightDecay {
                 coeffs: [ .00005, .00005, .00005, .00005, .00005 ]

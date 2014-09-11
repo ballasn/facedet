@@ -12,7 +12,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     # (X, Y) pair, and Y cannot be None.
     supervised = True
     
-    def __init__(self, teacher_path, relaxation_term=1):
+    def __init__(self, teacher_path, relaxation_term=1, weight=1):
       self.relaxation_term = relaxation_term
       
       # Load teacher network and change parameters according to relaxation_term.
@@ -25,6 +25,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
       teacher.layers[-1].set_param_values(tparams)
 
       self.teacher = teacher
+      self.weight = weight
 
     def expr(self, model, data, ** kwargs):
         """
@@ -60,7 +61,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 	# Compute cost
         cost_wrt_y = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
         cost_wrt_teacher = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
-        cost = (1/float(self.relaxation_term))*cost_wrt_y + T.mean(cost_wrt_teacher, axis=1)
+        cost = self.weight*cost_wrt_y + T.mean(cost_wrt_teacher, axis=1)
         
         return T.mean(cost)
 
