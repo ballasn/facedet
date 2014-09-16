@@ -10,49 +10,79 @@
                 layers: [
                  !obj:utils.layer.convVariable.ConvElemwise {
                      layer_name: 'c0',
-                     output_channels: 48,
+                     output_channels: 16,
                      kernel_shape: [3, 3],
-                     pool_type: 'max',
-                     pool_shape: [2,2],
-                     pool_stride: [2,2],
                      irange: .05,
                      nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
                      tied_b: 1
                  },
                  !obj:utils.layer.convVariable.ConvElemwise {
                      layer_name: 'c1',
-                     output_channels: 64,
-                     kernel_shape: [2, 2],
+                     output_channels: 32,
+                     kernel_shape: [3, 3],
                      irange: .1,
                      nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
                      tied_b: 1
                  },
                  !obj:utils.layer.convVariable.ConvElemwise {
                      layer_name: 'c2',
-                     output_channels: 96,
-                     kernel_shape: [2, 2],
+                     output_channels: 32,
+                     kernel_shape: [3, 3],
                      irange: .1,
                      nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
                      tied_b: 1
                  },
                  !obj:utils.layer.convVariable.ConvElemwise {
                      layer_name: 'c3',
-                     output_channels: 96,
-                     kernel_shape: [2, 2],
+                     output_channels: 32,
+                     kernel_shape: [3, 3],
                      irange: .1,
                      nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
                      tied_b: 1
                  },
                  !obj:utils.layer.convVariable.ConvElemwise {
                      layer_name: 'c4',
-                     output_channels: 16,
+                     output_channels: 32,
+                     kernel_shape: [2, 2],
+                     irange: .1,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+
+                 !obj:utils.layer.convVariable.ConvElemwise {
+                     layer_name: 'c5',
+                     output_channels: 32,
                      kernel_shape: [2, 2],
                      irange: .1,
                      nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
                      tied_b: 1
                  },
                  !obj:utils.layer.convVariable.ConvElemwise {
-                     layer_name: 'Sw',
+                     layer_name: 'c6',
+                     output_channels: 32,
+                     kernel_shape: [2, 2],
+                     irange: .1,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:utils.layer.convVariable.ConvElemwise {
+                     layer_name: 'c7',
+                     output_channels: 16,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:utils.layer.convVariable.ConvElemwise {
+                     layer_name: 'c8',
+                     output_channels: 8,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:utils.layer.convVariable.ConvElemwise {
+                     layer_name: 'c9',
                      output_channels: 2,
                      kernel_shape: [3, 3],
                      irange: .05,
@@ -91,10 +121,10 @@
                       },
             },
         cost: !obj:pylearn2.costs.cost.SumOfCosts { costs: [
-            !obj:utils.compression.TeacherRegressionCost.TeacherRegressionCost {
+            !obj:utils.compression.TeacherRegressionCostFace.TeacherRegressionCost {
                 teacher_path: /data/lisatmp3/chassang/facedet/models/16/5conv16_best.pkl,
                 relaxation_term: 3,
-                weight: 0.30
+                weight: 0.1
             }
             ]
         },
@@ -109,6 +139,6 @@
                 save_path: "./models/student_5conv16_best.pkl"
             }
     ],
-    save_path: "./student_models/student_5conv16.pkl",
+    save_path: "./models/student_5conv16.pkl",
     save_freq: 5
 }

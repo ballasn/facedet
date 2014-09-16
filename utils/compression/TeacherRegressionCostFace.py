@@ -1,5 +1,6 @@
 import theano.tensor as T
 import cPickle as pkl
+from theano.compat.python2x import OrderedDict
 from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
 
 class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
@@ -27,18 +28,8 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 
       self.teacher = teacher
       self.weight = weight
-
-    def expr(self, model, data, ** kwargs):
-        """
-        Returns a theano expression for the cost function.
-        
-        Parameters
-        ----------
-        model : a pylearn2 Model instance
-        data : a batch in cost.get_data_specs() form
-        kwargs : dict
-            Optional extra arguments. Not used by the base class.
-        """
+      
+    def cost_wrt_target(self, model, data):
         space, sources = self.get_data_specs(model)
         space.validate(data)
         (x, y) = data
@@ -48,16 +39,25 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         # Compute student output
         Ps_y_given_x = model.fprop(x)
         
-        Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[0],
+        Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[0]*
                        Ps_y_given_x.shape[1]*
-                       Ps_y_given_x.shape[2]*
+                       Ps_y_given_x.shape[2],
                        Ps_y_given_x.shape[3]),ndim=2)
+        # Compute cost
+        rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]  
         
+        return rval
+        
+    def cost_wrt_teacher(self, model, data):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        (x, y) = data
+                                                
         # Compute teacher relaxed output
 	Pt_y_given_x_relaxed = self.teacher.fprop(x)
-        Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[0],
+        Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[0]*
 			       Pt_y_given_x_relaxed.shape[1]*
-			       Pt_y_given_x_relaxed.shape[2]*
+			       Pt_y_given_x_relaxed.shape[2],
 			       Pt_y_given_x_relaxed.shape[3]),ndim=2)	
 	
 
@@ -69,18 +69,81 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         # Compute student relaxed output
         Ps_y_given_x_relaxed = model.fprop(x)
         
-        Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[0],
+        Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[0]*
 			       Ps_y_given_x_relaxed.shape[1]*
-			       Ps_y_given_x_relaxed.shape[2]*
+			       Ps_y_given_x_relaxed.shape[2],
 			       Ps_y_given_x_relaxed.shape[3]),ndim=2)	
                 
 	# Compute cost
-        cost_wrt_y = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
-        cost_wrt_teacher = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
-        #cost = T.mean(cost_wrt_teacher)
-        cost = self.weight*cost_wrt_y + T.mean(cost_wrt_teacher, axis=1)
+        rval = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
+        rval = T.sum(rval, axis=1)
+        return rval  
+        
+    def expr(self, model, data, ** kwargs):
+        """
+        Returns a theano expression for the cost function.
+        
+        Parameters
+        ----------
+        model : a pylearn2 Model instance
+        data : a batch in cost.get_data_specs() form
+        kwargs : dict
+            Optional extra arguments. Not used by the base class.
+        """
+	cost_wrt_y = self.cost_wrt_target(model,data)
+        cost_wrt_teacher = self.cost_wrt_teacher(model,data)
+        
+	# Compute cost
+        cost = self.weight*cost_wrt_y + cost_wrt_teacher
         
         return T.mean(cost)
+        
+    def get_monitoring_channels(self, model, data, **kwargs):
+        """
+        .. todo::
+
+            WRITEME
+
+        .. todo::
+
+            how do you do prereqs in this setup? (I think PL changed
+            it, not sure if there still is a way in this context)
+
+        Returns a dictionary mapping channel names to expressions for
+        channel values.
+
+        Parameters
+        ----------
+        model : Model
+            the model to use to compute the monitoring channels
+        data : batch
+            (a member of self.get_data_specs()[0])
+            symbolic expressions for the monitoring data
+        kwargs : dict
+            used so that custom algorithms can use extra variables
+            for monitoring.
+
+        Returns
+        -------
+        rval : dict
+            Maps channels names to expressions for channel values.
+        """
+               
+	rval = super(TeacherRegressionCost, self).get_monitoring_channels(model,data)
+	                
+        value_cost_wrt_target = self.cost_wrt_target(model,data)
+        if value_cost_wrt_target is not None:
+	   name = 'cost_wrt_target'
+	   rval[name] = self.weight*T.mean(value_cost_wrt_target)
+                
+        value_cost_wrt_teacher = self.cost_wrt_teacher(model,data)
+        if value_cost_wrt_teacher is not None:
+	   name = 'cost_wrt_teacher'
+	   rval[name] = T.mean(value_cost_wrt_teacher)
+	   	
+        return rval        
+
+
 
 
 

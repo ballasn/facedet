@@ -135,8 +135,8 @@ def getYamlFromHyperparams(hyperparams):
                                   'LR' : hyperparams['learning_rate'],
                                   'mom' : hyperparams['momentum'],
                                   'EP' : hyperparams['max_epochs'],
-                                  'outfile_ext' : "./RandSearch/Results/" + savefile + "_best.pkl",
-                                  'outfile' : "./RandSearch/Results/" + savefile + ".pkl"}
+                                  'outfile_ext' : "./Results/" + savefile + "_best.pkl",
+                                  'outfile' : "./Results/" + savefile + ".pkl"}
     return yamlContent
     
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
       # Output the yaml file only if it was never generated before
       print "Generating yalm file"
 
-      savepath = "./RandSearch/Configurations/"
+      savepath = "./Configurations/"
       if not os.path.exists(savepath):
         os.makedirs(savepath)
         
