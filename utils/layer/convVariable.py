@@ -263,8 +263,6 @@ class ConvElemwise(Layer):
                                             num_channels=self.output_channels,
                                             axes=('b', 'c', 0, 1))
 
-        logger.info('Output space: {0}'.format(self.output_space.shape))
-
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
         """ Note: this function will reset the parameters! """
