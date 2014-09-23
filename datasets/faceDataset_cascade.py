@@ -21,8 +21,6 @@ from pylearn2.space import VectorSpace, CompositeSpace
 from math import sqrt
 
 
-
-
 class faceDataset(dataset.Dataset):
 
     mapper = {'train': 0, 'valid': 1}
@@ -31,10 +29,10 @@ class faceDataset(dataset.Dataset):
                  positive_samples,
                  negative_samples,
                  which_set,
-                 ratio = 0.8,
-                 inactive_examples = None,
-                 batch_size = 128,
-                 axes = ('c', 0, 1, 'b')):
+                 ratio=0.8,
+                 inactive_examples=None,
+                 batch_size=128,
+                 axes=('c', 0, 1, 'b')):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -42,22 +40,21 @@ class faceDataset(dataset.Dataset):
         negative_samples : path to the npy file of - samples
         The current ratio is 0.8 => train 80%, valid 20%
         """
-        self.positives =  np.load(positive_samples)
+        self.positives = np.load(positive_samples)
         self.negatives = np.load(negative_samples)
         self.inactives = np.zeros(self.negatives.shape)
         # This will be used as a mask
 
         # Remove negative example already discarded by previous layer in
         # the cascade
-        if inactive_examples != None:
+        if inactive_examples is not None:
             # Numpy.delete creates a copy of the iarray, not possible here.
             # We just set up a mask
             inactives_ = np.load(inactive_examples)
-            ex_size = self.negatives.shape[1]
-            self.inactives[inactives_,:] = 1
+            self.inactives[inactives_, :] = 1
 
         self.negatives = ma.array(data=self.negatives,
-                    mask=self.inactives)
+                                  mask=self.inactives)
 
         if which_set == 'train':
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
@@ -73,7 +70,7 @@ class faceDataset(dataset.Dataset):
 
 
 
-        ### duplicate to have  nb_pos/nb_neg divisible by batch_size/2
+        # duplicate to have  nb_pos/nb_neg divisible by batch_size/2
         # batch_size = batch_size / 2
         self.nb_pos = self.positives.shape[0]
         self.nb_neg = self.negatives.shape[0]
@@ -136,7 +133,7 @@ class faceDataset(dataset.Dataset):
         x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
         y[0:nb_pos, 0] = 1
         # We need to access only the good ones
-        size = self.negatives.mask.shape[1]
+        size = self.negatives.shape[1]
         length = self.negatives.count(axis=0)[0]
         x[nb_pos:nb_pos+nb_neg, :] =\
         np.reshape(self.negatives.compressed(), (length, size) )[cur_negatives:cur_negatives + nb_neg, :]

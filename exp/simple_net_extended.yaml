@@ -21,8 +21,8 @@
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      layer_name: 'h1',
-                     num_channels: 32,
-                     kernel_shape: [5, 5],
+                     num_channels: 64,
+                     kernel_shape: [4, 4],
                      num_pieces: 1,
                      pool_shape: [2, 2],
                      pool_stride: [1, 1],
@@ -32,9 +32,20 @@
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      layer_name: 'h2',
+                     num_channels: 64,
+                     kernel_shape: [3, 3],
+                     num_pieces: 1,
+                     pool_shape: [2, 2],
+                     pool_stride: [1, 1],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     tied_b: 1
+                 },
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                     layer_name: 'wSo',
                      num_channels: 16,
                      # Kernel_shape must match the input_shape to send a 1*1 output
-                     kernel_shape: [7,7],
+                     kernel_shape: [5,5],
                      num_pieces: 1,
                      pool_shape: [1,1],
                      pool_stride: [1,1],
@@ -61,7 +72,7 @@
         },
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        learning_rate: .0000005,
+        learning_rate: .00001,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: 0.1,
         },
@@ -77,10 +88,6 @@
                         axes: ['c', 0, 1, 'b'],
                       },
             },
-       # cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
-       #     input_include_probs: { 'h0' : .8 },
-       #     input_scales: { 'h0': 1. }
-       # },
         termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
             max_epochs: 1000,
             new_epochs: True
@@ -89,9 +96,9 @@
     extensions: [
         !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
                 channel_name: 'valid_y_misclass',
-                save_path: "2layers_16_best.pkl"
+                save_path: "2layers_16_best_decay.pkl"
             }
     ],
-    save_path: "2layers_16.pkl",
+    save_path: "2layers_16_decay.pkl",
     save_freq: 5
 }
