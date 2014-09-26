@@ -13,7 +13,7 @@ except ImportError:  # Antoine's config
 
 
 def train_one_stage(model_yaml, dataset=None, model_file=None,
-                    max_epochs=5):
+                    max_epochs=500):
     """
     Train a stage of the cascade
     Return the path to the best model.
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     negatives = "/data/lisatmp3/chassang/facedet/16/neg16.hdf"
     hdf_dir = "/data/lisatmp3/chassang/facedet/16/"
     ratio = 0.8
-    acc_prob = 0.40
+    acc_prob = 0.05
     batch_size = 128
     m_yaml = "../../exp/simple_net_extended.yaml"
     dataset = faceDataset(positives, negatives, 'train')

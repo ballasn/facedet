@@ -42,22 +42,26 @@ class faceDataset(dataset.Dataset):
         """
 
         if which_set == 'train':
-            self.positives =  np.load(positive_samples)
+            self.positives = np.load(positive_samples)
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
+            nb_train -= nb_train % 128
             self.positives = self.positives[0:nb_train, :]
             print "positives train shape", self.positives.shape
             self.negatives = np.load(negative_samples)
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
+            nb_train -= nb_train % 128
             self.negatives = self.negatives[0:nb_train, :]
             print "negatives train shape", self.negatives.shape
 
         elif which_set == 'valid':
             self.positives = np.load(positive_samples)
             nb_train = int(np.ceil(ratio * self.positives.shape[0]))
-            self.positives = self.positives[nb_train:self.positives.shape[0], :]
+            nb_max = ((self.positives.shape[0]-nb_train)/128) *128 +nb_train
+            self.positives = self.positives[nb_train:nb_max, :]
             self.negatives = np.load(negative_samples)
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
-            self.negatives = self.negatives[nb_train:self.negatives.shape[0], :]
+            nb_max = ((self.negatives.shape[0]-nb_train)/128) *128 + nb_train
+            self.negatives = self.negatives[nb_train:nb_max, :]
             print "positives",self.positives.shape
             print "negatives",self.negatives.shape
         ### duplicate last line to have nb_pos and nb_neg divisible by batch_size/2

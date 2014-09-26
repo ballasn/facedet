@@ -13,13 +13,13 @@ if __name__ == '__main__':
 
 
     dataset = np.load(sys.argv[1])
-    sample = dataset[int(sys.argv[2]), :]
+    nb = int(sys.argv[2])
 
-    print sample
+    for i in range(nb, nb+50):
+        sample = dataset[i,:]
+        sample = np.reshape(sample, img_shape).astype(np.uint8)
 
-    sample = np.reshape(sample, img_shape).astype(np.uint8)
-
-    cv2.imshow('image', sample)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        cv2.imshow('image', sample)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
