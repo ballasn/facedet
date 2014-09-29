@@ -221,6 +221,7 @@ def fast_nms(maps, size, stride, prob):
     over = 2 * ((size - 1) / stride) + 1
     over = int(over * 0.7)
     for s in maps:
+        print 's', s,' shape:', maps[s].shape
         # Apply the filter to the overlapping region
         maps[s] = maps[s] * (maps[s] > prob)
         maxF = ndimage.filters.maximum_filter(maps[s], (over, over))

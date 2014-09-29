@@ -1,6 +1,7 @@
 import sys
 import cPickle as pkl
-from utils.layer.convVariable import ConvElemwise
+from models.layer.convVariable import ConvElemwise as Cv_new_path
+from utils.layer.convVariable import ConvElemwise as Cv_old_path
 
 
 def get_input_coords(i, j, model):
@@ -15,12 +16,13 @@ def get_input_coords(i, j, model):
     x1 = 1
     y1 = 1
     for l in model.layers[::-1]:
-        if isinstance(l, ConvElemwise):
+        if isinstance(l, Cv_new_path) or isinstance(l, Cv_old_path):
             if l.pool_type is not None:
                 x0 *= l.pool_stride[0]
                 y0 *= l.pool_stride[0]
                 x1 = (x1-1) * l.pool_stride[0] + l.pool_shape[0]
                 y1 = (y1-1) * l.pool_stride[0] + l.pool_shape[0]
+
             x0 *= l.kernel_stride[0]
             y0 *= l.kernel_stride[0]
             x1 = (x1-1) * l.kernel_stride[0] + l.kernel_shape[0]

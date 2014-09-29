@@ -6,7 +6,7 @@ import cPickle as pkl
 from utils.cascade.nms import fast_nms, nms_scale
 from utils.cascade.image_processing import process_image
 from utils.cascade.rois import get_rois, correct_rois, rois_to_slices
-
+from math import sqrt
 
 def cascade(img, models, fprops, scales, sizes, strides, probs=None):
     """
@@ -73,6 +73,10 @@ def cascade(img, models, fprops, scales, sizes, strides, probs=None):
 if __name__ == "__main__":
     # Define image and model
     img_file = "/data/lisa/data/faces/FDDB/2002/08/11/big/img_276.jpg"
+    img_file =\
+    "/u/chassang/Pictures/face_det/9_CMID_MTL-WKS-AC413_FID_2_ID_4265_002819_er.bmp.jpg"
+    img_file =\
+    "/u/chassang/Pictures/face_det/9_CMID_MTL-WKS-AE123_FID_2_ID_3510_005473_er.bmp"
     model_file1 = '/data/lisatmp3/chassang/facedet/models/16/largebis16.pkl'
     # model_file2 = '../../exp/convtest/models/conv48_best.pkl'
     # model_file3 = '../../exp/convtest/convTest96_best.pkl'
@@ -94,15 +98,18 @@ if __name__ == "__main__":
     models = [model1]
     fprops = [predict1]
     sizes = [16]
-    strides = [1]
-    scales = [0.15, 0.10, 0.20]
+    strides = [2]
+    scales = [0.05 * sqrt(2)**e for e in range(5)  ]
     local_scales = [scales]
-    probs = [0.0]
+    probs = [20.0]
     print 'local_scales', local_scales
 
     # Apply cascade
+    print 'img.shape', img.shape
     rois, scores = cascade(img, models, fprops, local_scales, sizes, strides,
                            probs)
+    #print rois
+    #print scores
 
     # Flip the image vertically
     img2 = np.copy(img[::-1, :])
@@ -113,29 +120,38 @@ if __name__ == "__main__":
     img3 = np.copy(img[:, ::-1, :])
     rois3, scores3 = cascade(img3, models, fprops, local_scales, sizes,
                              strides, probs)
-
     # Display results as squares on the image
 
     for i in xrange(len(rois)):
         cv2.rectangle(img, (int(rois[i][0, 1]), int(rois[i][0, 0])),
                       (int(rois[i][1, 1]), int(rois[i][1, 0])),
                       (0, 255, 0), 2)
-        cv2.putText(img, str(i)+','+str(scores[i]),
+    for i in xrange(len(rois)):
+        cv2.putText(img, str(scores[i]),
                     (int(rois[i][0, 1]) + 10, int(rois[i][0, 0]) + 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    (0, 255, 0))
-
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (255, 0, 0))
     cv2.imshow('r', img)
     for i in xrange(len(rois2)):
         cv2.rectangle(img2, (int(rois2[i][0, 1]), int(rois2[i][0, 0])),
                       (int(rois2[i][1, 1]), int(rois2[i][1, 0])),
                       (0, 255, 0), 2)
+    for i in xrange(len(rois2)):
+        cv2.putText(img2, str(scores2[i]),
+                    (int(rois2[i][0, 1]) + 10, int(rois2[i][0, 0]) + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (255, 0, 0))
 
     cv2.imshow('r2', img2)
     for i in xrange(len(rois3)):
         cv2.rectangle(img3, (int(rois3[i][0, 1]), int(rois3[i][0, 0])),
                       (int(rois3[i][1, 1]), int(rois3[i][1, 0])),
                       (0, 255, 0), 2)
+    for i in xrange(len(rois3)):
+        cv2.putText(img3, str(scores3[i]),
+                    (int(rois3[i][0, 1]) + 10, int(rois3[i][0, 0]) + 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (255, 0, 0))
 
     cv2.imshow('r3', img3)
     cv2.waitKey(0)
