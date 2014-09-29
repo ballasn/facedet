@@ -85,15 +85,14 @@ class SoftmaxExtended(Layer):
         e_Z = T.exp(Z - Z.max(axis=1, keepdims=True))
         rval = e_Z / e_Z.sum(axis=1, keepdims=True)
 
-        # Going back to B01C -> B,x,y,probs
-        rval_swaped = rval.dimshuffle(0, 2, 3, 1)
-        # Use rval shape to override input_shape
         # Receiving BC01
-        rval_reshaped = rval_swaped.reshape(shape=(rval.shape[0],
+        #rval_swaped = rval.dimshuffle(0, 2, 3, 1)
+        # Use rval shape to override input_shape
+        rval_reshaped = rval.reshape(shape=(rval.shape[0],
+                                            self.n_classes,
                                             rval.shape[2],
-                                            rval.shape[3],
-                                            self.n_classes),
-                                     ndim=4)
+                                            rval.shape[3]),
+                                            ndim=4)
         assert rval_reshaped.ndim == 4
         return rval_reshaped
 

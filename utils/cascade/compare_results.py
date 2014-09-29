@@ -3,8 +3,8 @@ from os.path import join
 import numpy as np
 
 base_dir = '/data/lisa/data/faces/FDDB/'
-file_1 = './output4/fold-01-out.txt'
-file_2 = './output3/fold-01-out.txt'
+file_1 = './results/output4/fold-01-out.txt'
+file_2 = './results/output3/fold-01-out.txt'
 with open(file_1, 'r') as f1:
     with open(file_2, 'r') as f2:
 
