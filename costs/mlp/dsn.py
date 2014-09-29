@@ -53,17 +53,20 @@ class DSN(DSNBase):
 
         state_below = X
 
-
-        rval = self.layers[0].fprop(state_below)
-
         cost = []
         for layer in model.layers:
             layer_name = layer.layer_name
             state_below = layer.fprop(state_below)
             if layer_name in self.companion:
+                self.companion[layer_name].mlp = model
+                self.companion[layer_name].set_input_space(layer.get_output_space())
                 Y_tmp = self.companion[layer_name].fprop(state_below)
-                cost += self.companion_weight[layer_name] * self.companion[layer_name].cost(Y, Y_tmp)
-        return cost + model.cost(Y, Y_hat)
+                w = self.companion_weight[layer_name]
+                costs += [w * (self.companion[layer_name].cost(Y, Y_tmp))]
+
+        costs += [model.cost(Y, state_below)]
+        sum_of_costs = reduce(lambda x, y: x + y, costs)
+        return sum_of_costs
 
 
 
