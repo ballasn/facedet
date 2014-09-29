@@ -23,10 +23,8 @@ def create_positives_sample(dataset,
         # Get the image path and its corresponding bounding box
         path = dataset.get_original_image_path(i)
         bbox = dataset.get_bbox(i)
-        #dataset.verify_samples(i)
+        dataset.verify_samples(i)
 
-        if bbox == None:
-            continue
         assert bbox is not None
         #print bbox
 
@@ -34,9 +32,9 @@ def create_positives_sample(dataset,
             assert len(bbox[j]) == 4
             # Write output
             x0, y0, x1, y1 = bbox[j]
-            s += path + ' '+ str(x0) + ' ' + str(y0) + ' ' + str(x1) +' ' + str(y0)+'\n'
+            s += path + ' '+ str(x0) + ' ' + str(y0) + ' ' + str(x1) +' ' + str(y1)+'\n'
 
-    with open(output_file, 'w') as output:
+    with open(output_file, 'a') as output:
         output.write(s)
     return s
 

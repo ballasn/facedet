@@ -43,8 +43,9 @@ class AFLW(FaceImagesDataset):
         print len(self.valid_id)
         self.bbox = []
         for i in xrange(0, len(self.valid_id)):
-            res = self.conn.execute('select * from FaceRect where face_id ='+ str(self.valid_id[i][0])).fetchall()
-
+            #res = self.conn.execute('SELECT sql FROM sqlite_master WHERE tbl_name = \'FaceRect\' AND type = \'table\'').fetchall()
+            #print res
+            res = self.conn.execute('select * from FaceRect where face_id ='+ str(self.valid_id[i][0]) + ' order by annot_type_id').fetchall()
             cur = []
             for k in xrange(0, len(res)):
                 cur.append([res[k][1], res[k][2],
