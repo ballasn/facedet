@@ -15,7 +15,6 @@ def process_image(fprop_func, image, scales, pred_size):
     minibatch = {}
     for s in scales:
         img_ = rescale(image, s, pred_size)
-        print 'image rescaled by', s, 'shape', img_.shape
         minibatch[s] = img_
 
     map_ = apply_fprop(fprop_func, minibatch)
@@ -36,15 +35,19 @@ def apply_fprop(fprop_func, image):
             rval[s] = apply_fprop(fprop_func, image[s])
         return rval
     # Add a minibatch dim to get C01B format
-    print 'before reshape', image.shape,
+    #print 'before reshape', image.shape,
     image = np.reshape(image, list(image.shape)+[1])
-    print 'after reshape', image.shape,
+    #print 'after reshape', image.shape,
     image = np.transpose(image, (2, 0, 1, 3))
-    print 'after transpose', image.shape,
+    #print 'after transpose', image.shape,
     rval = fprop_func(image)
-    rval = np.transpose(rval, (0, 2, 3, 1))
-    print 'predict size', rval.shape
-    return rval[0, :, :, 0]
+    #rval = np.transpose(rval, (0, 2, 3, 1))
+    #print 'predict size', rval.shape
+    # Softmax now keeps the format
+    # If BC01 used, the output is BP01
+    prob_map =rval[0, 0, :, :]
+    #print 'shape of probs map', prob_map.shape
+    return rval[0, 0, :, :]
 
 
 def rescale(image, scale, pred_size):

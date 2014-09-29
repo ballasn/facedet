@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # Define predictor
     with open(model_file1, 'r') as m_f:
         model1 = pkl.load(m_f)
-    model1.layers.pop()
+    #model1.layers.pop()
     # Compile network prediction function
     x = T.tensor4("x")
     predict1 = function([x], model1.fprop(x))

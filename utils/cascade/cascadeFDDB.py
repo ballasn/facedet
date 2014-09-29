@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     probs = [0.1]
     nb_fold = 1
-    out_dir = './output4/'
+    out_dir = './results/output4/'
 
     with open(model_file16, 'r') as m_f:
         model16 = pkl.load(m_f)
