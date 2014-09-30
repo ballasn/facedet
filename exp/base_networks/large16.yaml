@@ -1,0 +1,112 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:faceDataset.faceDataset {
+        which_set: 'train',
+        positive_samples: "/data/lisatmp3/chassang/facedet/16/pos700_valid.npy",
+        negative_samples: "/data/lisatmp3/chassang/facedet/16/neg700_valid.npy",
+        axes: ['c', 0, 1, 'b']
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+                layers: [
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c0',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c1',
+                     output_channels: 512,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c2',
+                     output_channels: 512,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c3',
+                     output_channels: 512,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c4',
+                     output_channels: 512,
+                     kernel_shape: [2, 2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'Sw',
+                     output_channels: 2,
+                     kernel_shape: [3, 3],
+                     irange: .5,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.SoftmaxBC01Extended.SoftmaxExtended {
+                     max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     n_classes: 2,
+                     irange: .5,
+                     thresholds: [0.25, 0.4]
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [16, 16],
+            num_channels: 3,
+            axes: ['c', 0, 1, 'b'],
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .001,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: 0.7,
+        },
+        train_iteration_mode: 'batchwise_shuffled_sequential',
+        monitor_iteration_mode: 'even_sequential',
+        monitoring_dataset:
+            {
+                'train' : *train,
+                'valid' : !obj:faceDataset.faceDataset {
+                        which_set: 'valid',
+                        positive_samples: "/data/lisatmp3/chassang/facedet/16/pos700_valid.npy",
+                        negative_samples: "/data/lisatmp3/chassang/facedet/16/neg700_valid.npy",
+                        axes: ['c', 0, 1, 'b'],
+                      },
+            },
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 1000,
+            new_epochs: True
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                channel_name: 'valid_y_misclass',
+                save_path: "./models/large700_best.pkl"
+            }
+    ],
+    save_path: "./models/large700.pkl",
+    save_freq: 5
+}
