@@ -10,6 +10,9 @@ import time
 # Parse arguments
 _, teacher_path, student_path = sys.argv
 
+print student_path
+print teacher_path
+
 # Set variables
 batch_size = 100
 
