@@ -33,7 +33,8 @@ class faceDataset(dataset.Dataset):
                  which_set,
                  ratio=0.8,
                  batch_size=128,
-                 axes=('c', 0, 1, 'b')):
+                 axes=('c', 0, 1, 'b'),
+                 nb_examples=[None, None]):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -49,25 +50,29 @@ class faceDataset(dataset.Dataset):
         self.negatives_h5file = tables.openFile(negative_samples, mode="r")
         self.negatives = self.negatives_h5file.getNode('/', "denseFeat")
         print "done opening hdf5 files"
+        if nb_examples[0] is None:
+            nb_examples[0] = self.positives.shape[0]
+        if nb_examples[1] is None:
+            nb_examples[1] = self.negatives.shape[0]
 
         if which_set == 'train':
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
+            nb_train = int(np.ceil(ratio * nb_examples[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
+            nb_train = int(np.ceil(ratio * nb_examples[1]))
             self.negatives_shape = (nb_train, self.negatives.shape[1])
             self.start_pos = 0
             self.start_neg = 0
 
         elif which_set == 'valid':
-            nb_train = int(np.ceil((1.0-ratio) * self.positives.shape[0]))
-            start_ = int(np.ceil(ratio * self.positives.shape[0]))
+            nb_train = int(np.ceil((1.0-ratio) * nb_examples[0]))
+            start_ = int(np.ceil(ratio * nb_examples[0]))
             self.positives_shape = (nb_train, self.positives.shape[1])
             # We don't slice arrays to reduce memory usage
             # start indicates the index at which starts the validation set
             self.start_pos = start_
 
-            nb_train = int(np.ceil((1.0-ratio) * self.negatives.shape[0]))
-            start_ = int(np.ceil(ratio * self.negatives.shape[0]))
+            nb_train = int(np.ceil((1.0-ratio) * nb_examples[1]))
+            start_ = int(np.ceil(ratio * nb_examples[1]))
             self.negatives_shape = (nb_train, self.negatives.shape[1])
             self.start_neg = start_
 
@@ -144,10 +149,32 @@ class faceDataset(dataset.Dataset):
         return (x, y), cur_positives, cur_negatives
 
 
+    def get_negseqs_minibatch(self, cur, minibatch_size,
+                              data_specs, return_tuple):
+        ### Initialize data
+        x = np.zeros([minibatch_size, self.positives.shape[1]],
+                     dtype = "float32")
+        y = np.zeros([minibatch_size, 2],
+                     dtype="float32")
+        x[0:minibatch_size, :] = self.negatives[cur*minibatch_size:(cur + 1) * minibatch_size, :]
+        x = np.reshape(x, [minibatch_size] + self.img_shape)
+        x = np.swapaxes(x, 3, 0)
+        y[0:minibatch_size, 1] = 1
+        assert y[0,0] ==0
+        return (x, y)
+
+
 
     def iterator(self, mode=None, batch_size=None, num_batches=None, topo=None,
                  targets=False, data_specs=None, return_tuple=False, rng=None):
 
+        if mode == 'negative_seq':
+            print '*'*30
+            print "Returning only negatives"
+            print '*'*30
+            return FaceIteratorNegSeq(self,
+                                      batch_size, num_batches,
+                                      data_specs, return_tuple, rng)
         # FIXME add  mode, topo and targets
         return FaceIterator(self, batch_size, num_batches,
                             data_specs, return_tuple, rng)
@@ -236,6 +263,56 @@ class FaceIterator:
                                             self._cur_neg,
                                             self._batch_size, self._data_specs,
                                             self._return_tuple)
+            return data
+
+class FaceIteratorNegSeq:
+
+    def __init__(self, dataset=None, batch_size=None, num_batches=None,
+                 data_specs=False, return_tuple=False, rng=None):
+
+        self._dataset = dataset
+        self._dataset_size = dataset.negatives_shape[0]
+
+        # Validate the inputs
+        assert dataset is not None
+        if batch_size is None and num_batches is None:
+            raise ValueError("Provide at least one of batch_size or num_batches")
+        if batch_size is None:
+            batch_size = int(np.ceil(self._dataset_size / float(num_batches)))
+        if num_batches is None:
+            num_batches = np.ceil(self._dataset_size / float(batch_size))
+
+        max_num_batches = np.ceil(self._dataset_size / float(batch_size))
+        if num_batches > max_num_batches:
+            raise ValueError("dataset of %d examples can only provide "
+                             "%d batches with batch_size %d, but %d "
+                             "batches were requested" %
+                             (self._dataset_size, max_num_batches,
+                              batch_size, num_batches))
+
+        self._batch_size = batch_size
+        self._num_batches = int(num_batches)
+        self._cur = 0
+        self.stochastic = False
+        self._return_tuple = return_tuple
+        self._data_specs = data_specs
+
+        self.num_examples = self._dataset_size # Needed by Dataset interface
+        #print self.num_examples
+
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._cur == self._num_batches:
+            raise StopIteration()
+        else:
+            data = self._dataset.get_negseqs_minibatch(self._cur,
+                                                      self._batch_size,
+                                                      self._data_specs,
+                                                      self._return_tuple)
+            self._cur += 1
             return data
 
 if __name__ == "__main__":
