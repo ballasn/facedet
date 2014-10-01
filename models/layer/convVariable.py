@@ -251,6 +251,7 @@ class ConvElemwise(Layer):
                                     pool_stride=self.pool_stride,
                                     image_shape=self.detector_space.shape)
             dummy_p = dummy_p.eval()
+            print dummy_p.shape
             self.output_space = Conv2DSpace(shape=[dummy_p.shape[2],
                                                    dummy_p.shape[3]],
                                             num_channels=
@@ -258,6 +259,7 @@ class ConvElemwise(Layer):
                                             axes=('b', 'c', 0, 1))
         else:
             dummy_detector = dummy_detector.eval()
+            print dummy_detector.shape
             self.output_space = Conv2DSpace(shape=[dummy_detector.shape[2],
                                             dummy_detector.shape[3]],
                                             num_channels=self.output_channels,

@@ -57,7 +57,7 @@ def create_negative_sample(img_list,
     while cur < nb_samples:
         # Printing information about the flow
 
-        if cur % 100 == 0 and cur != 0 and cur != chkpt_print:
+        if cur % 10 == 0 and cur != 0 and cur != chkpt_print:
             chkpt_print = cur
             t1 = time()
             sys.stdout.write("\r"+str(cur)+", last 100 in "+str(t1-t2)+" s" +
