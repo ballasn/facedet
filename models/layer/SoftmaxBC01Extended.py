@@ -68,7 +68,7 @@ class SoftmaxExtended(Layer):
 
         desired_dim = self.n_classes
 
-        #assert self.input_space.shape == (64,64)
+        assert self.input_space.num_channels == 2
         self._params = []
 
 
