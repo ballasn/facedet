@@ -67,7 +67,7 @@ def npy_from_textfile(text_file, patch_size, output,
 
         out[cur, :] = patch
 
-    np.savetxt(output, out)
+    np.save(output, out)
 
 
 if __name__ == '__main__':
