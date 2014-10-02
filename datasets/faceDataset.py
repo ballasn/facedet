@@ -32,7 +32,9 @@ class faceDataset(dataset.Dataset):
                  which_set,
                  ratio = 0.8,
                  batch_size = 128,
-                 axes = ('c', 0, 1, 'b')):
+                 mean = None,
+                 resize_neg = False,
+                 axes = ('b', 'c', 0, 1)):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -51,6 +53,10 @@ class faceDataset(dataset.Dataset):
             nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
             nb_train -= nb_train % 128
             self.negatives = self.negatives[0:nb_train, :]
+            if resize_neg and self.negatives.shape[0] > self.positives.shape[0]:
+                print "here"
+                self.negatives = self.negatives[0:self.positives.shape[0], :]
+            print resize_neg
             print "negatives train shape", self.negatives.shape
 
         elif which_set == 'valid':
@@ -91,6 +97,18 @@ class faceDataset(dataset.Dataset):
         self.which_set = which_set
         self.axes = axes
 
+        if mean != None:
+            self.mean = np.load(mean)
+        else:
+            self.mean = np.load('/data/lisatmp3/ballasn/facedet/datasets/aflw/mean_16pascal.npy')
+        #tmp = np.reshape(self.mean, self.img_shape)
+        #cv2.imshow("mean ", np.asarray(tmp, dtype=np.uint8))
+        #cv2.waitKey(0)
+
+
+
+        print self.positives.shape[0], self.negatives.shape[0]
+
 
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
@@ -127,16 +145,27 @@ class faceDataset(dataset.Dataset):
         x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_negatives:cur_negatives+nb_neg, :]
         y[nb_pos:nb_pos+nb_neg, 1] = 1
 
+        # remove mean
+        x -= self.mean
+        #x /= 255.0
+
         x = np.reshape(x, [minibatch_size] + self.img_shape)
         #print x[0].shape
-        #cv2.imshow("positif",np.asarray(x[0],dtype=np.uint8))
-        #cv2.imshow("negatif",np.asarray(x[nb_pos],dtype=np.uint8))
+        #for i in xrange(0, nb_pos):
+        #    cv2.imshow("positif " + str(i), np.asarray(x[i],dtype=np.uint8))
+        #for i in xrange(nb_pos, x.shape[0]):
+        #    cv2.imshow("negatif " + str(i), np.asarray(x[i],dtype=np.uint8))
         #cv2.waitKey(0)
-        x = np.swapaxes(x, 0, 3)
+
+        ### Return b c 0 1
+        x = np.transpose(x, (0, 3, 1, 2))
+        ### print x.shape
+        #x = np.swapaxes(x, 0, 3)
         cur_positives += nb_pos
         cur_negatives += nb_neg
         ### Displaying pictures to check that pos!=neg
 
+        #print "return batch", cur_negatives, cur_negatives
         return (x, y), cur_positives, cur_negatives
 
 
