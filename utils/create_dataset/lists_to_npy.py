@@ -30,6 +30,7 @@ def image_from_line(line,
                 int(max(0, int(row[2]))):int(min(img.shape[1], int(row[4]))), :]
     # patch = img[int(row[2]):int(row[4]),
     #             int(row[1]):int(row[3]), :]
+    patch = np.asarray(patch, dtype='float32')
     return patch
 
 
@@ -53,7 +54,9 @@ def npy_from_textfile(text_file, patch_size, output,
 
     t0 = time()
     for cur, line in enumerate(lines):
-        print cur, '/', nb_patches, line
+
+        sys.stdout.write('\r'+str(cur)+' / '+str(nb_patches)+' '+line)
+        sys.stdout.flush()
         if (cur >= nb_patches):
             break
 
