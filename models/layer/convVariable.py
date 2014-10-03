@@ -49,6 +49,7 @@ from pylearn2.expr.nnet import (elemwise_kl, kl, compute_precision,
 from pylearn2.costs.mlp import L1WeightDecay as _L1WD
 from pylearn2.costs.mlp import WeightDecay as _WD
 from pylearn2.models.mlp import Layer, max_pool, mean_pool
+from models.layer.nonLinearity import MaxoutBC01
 logger = logging.getLogger(__name__)
 
 logger.debug("MLP changing the recursion limit.")
@@ -238,6 +239,12 @@ class ConvElemwise(Layer):
         dummy_detector =\
                 sharedX(self.detector_space.get_origin_batch(dummy_batch_size))
 
+        # Redefine num channels of the outut space
+        if isinstance(self.nonlin, MaxoutBC01):
+            num_channels = self.output_channels / self.nonlin.num_pieces
+        else:
+            num_channels = self.output_channels
+
         if self.pool_type is not None:
             assert self.pool_type in ['max', 'mean']
             if self.pool_type == 'max':
@@ -254,15 +261,14 @@ class ConvElemwise(Layer):
             print dummy_p.shape
             self.output_space = Conv2DSpace(shape=[dummy_p.shape[2],
                                                    dummy_p.shape[3]],
-                                            num_channels=
-                                                self.output_channels,
+                                            num_channels=num_channels,
                                             axes=('b', 'c', 0, 1))
         else:
             dummy_detector = dummy_detector.eval()
             print dummy_detector.shape
             self.output_space = Conv2DSpace(shape=[dummy_detector.shape[2],
                                             dummy_detector.shape[3]],
-                                            num_channels=self.output_channels,
+                                            num_channels=num_channels,
                                             axes=('b', 'c', 0, 1))
 
     @wraps(Layer.set_input_space)
