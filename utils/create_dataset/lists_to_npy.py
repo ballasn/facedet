@@ -49,7 +49,7 @@ def npy_from_textfile(text_file, patch_size, output,
 
     # Create hdf output
     out_shape = (nb_patches, patch_size * patch_size * nb_channels)
-    out = np.zeros(out_shape)
+    out = np.zeros(out_shape, dtype='float32')
 
 
     t0 = time()
