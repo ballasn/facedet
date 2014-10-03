@@ -3,12 +3,12 @@ import numpy as np
 from theano import function
 import theano.tensor as T
 import cPickle as pkl
-from utils.cascade.nms import fast_nms, nms_scale
+from utils.cascade.nms import fast_nms, nms_scale, dummy_nms
 from utils.cascade.image_processing import process_image
 from utils.cascade.rois import get_rois, correct_rois, rois_to_slices
 from math import sqrt
 
-def cascade(img, models, fprops, scales, sizes, strides, probs=None):
+def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=None):
     """
     Perform the cascade classifier on image
     Returns the list of bounding boxes of the found items
@@ -21,7 +21,7 @@ def cascade(img, models, fprops, scales, sizes, strides, probs=None):
     sizes : list of ints
             sizes of inputs for the corresponding classifiers
     strides : list of ints
-              strides for the correspondiing classifiers
+              strides for the corresponding classifiers
     probs : list of floats
             if not None, define acceptance prob for each classifier
     """
@@ -35,10 +35,11 @@ def cascade(img, models, fprops, scales, sizes, strides, probs=None):
     # Perform first level
     res = process_image(fprops[0], img, scales[0], sizes[0])
 ######################################################
-    res = fast_nms(res, sizes[0], strides[0], probs[0])
+    #res = fast_nms(res, sizes[0], strides[0], probs[0])
+    res = dummy_nms(res, probs[0])
     # res = nms_scale(res, sizes[0], strides[0])
 ######################################################
-    rois, scores = get_rois(res, models[0], enlarge_factor=0)
+    rois, scores = get_rois(res, models[0], enlarge_factor=0, overlap_ratio=overlap_ratio[0])
     rois = correct_rois(rois, img.shape)
     slices = rois_to_slices(rois)
 
@@ -52,11 +53,12 @@ def cascade(img, models, fprops, scales, sizes, strides, probs=None):
             crop_ = img[sl]
             res_ = process_image(fprops[i], crop_, scales[i], sizes[i])
 ######################################################
-            res_ = fast_nms(res_, sizes[i], strides[i], probs[i])
+            #res_ = fast_nms(res_, sizes[i], strides[i], probs[i])
+            res = dummy_nms(res, probs[i])
 ######################################################
 
             rois_, scores_ = get_rois(res_, models[i],
-                                      enlarge_factor=0.3)
+                                      enlarge_factor=0.3, overlap_ratio=overlap_ratio[i])
             rois_ = correct_rois(rois_, crop_.shape)
 
             # Get the absolute coords of the new RoIs

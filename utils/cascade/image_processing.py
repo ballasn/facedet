@@ -34,18 +34,21 @@ def apply_fprop(fprop_func, image):
         for s in image:
             rval[s] = apply_fprop(fprop_func, image[s])
         return rval
+
     # Add a minibatch dim to get C01B format
     #print 'before reshape', image.shape,
     image = np.reshape(image, list(image.shape)+[1])
     #print 'after reshape', image.shape,
     image = np.transpose(image, (2, 0, 1, 3))
     #print 'after transpose', image.shape,
+    image = np.transpose(image, (3, 0, 1, 2))
     rval = fprop_func(image)
+
     #rval = np.transpose(rval, (0, 2, 3, 1))
     #print 'predict size', rval.shape
     # Softmax now keeps the format
     # If BC01 used, the output is BP01
-    prob_map =rval[0, 0, :, :]
+    # prob_map = rval[0, 0, :, :]
     #print 'shape of probs map', prob_map.shape
     return rval[0, 0, :, :]
 
@@ -66,6 +69,7 @@ def rescale(image, scale, pred_size):
     resized_image = cv2.resize(image,
                                (max(int(sh[1] * scale), pred_size),
                                 max(int(sh[0] * scale), pred_size)),
+
                                interpolation=cv2.INTER_CUBIC)
 
     resized_array = np.asarray(resized_image, dtype=image.dtype)

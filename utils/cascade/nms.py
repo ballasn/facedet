@@ -231,6 +231,26 @@ def fast_nms(maps, size, stride, prob):
     return rval
 
 
+def dummy_nms(maps, prob):
+    """
+    Keep all a elements > probs
+    ---------------------------------------------------------
+    maps : dict of the features maps indexed by scales
+    size : size of a patch
+    stride : stride between patches
+    """
+    rval = []
+    for s in maps:
+        # Apply the filter to the overlapping region
+        maps[s] = maps[s] * (maps[s] > prob)
+        n_z = np.transpose(np.nonzero(maps[s]))
+        rval.extend([[s, n_z[e, 0], n_z[e, 1], maps[s][n_z[e, 0], n_z[e, 1]]]
+                     for e in range(len(n_z))])
+
+    rval.sort(key=lambda x: x[3], reverse=True)
+    return rval
+
+
 def nms_scale(nz, size, stride):
     """
     Perform the NMS between scales

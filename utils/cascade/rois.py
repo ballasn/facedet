@@ -10,11 +10,31 @@ def include(a, b):
     rval = (a[0]<=b[0] and a[1]<=b[1] and b[2]<=a[2] and b[3]<=a[3])
     return rval
 
+def IoM(a, b):
+    """
+    Return the intersection / min area
 
-def remove_inclusions(n_z_elems, model):
+    a and b must be in the form:
+    a = [x0, x1, y0, y1]
+    b = [x0, x1, y0, y1] with x0 <= x1 and y0 <= y1
+
+    """
+    assert len(a) == 4 and len(b) == 4
+    assert a[1] >= a[0] and b[1] >= b[0]
+    assert a[3] >= a[2] and b[3] >= b[2]
+
+    min_area = min((a[1] - a[0]) * (a[3] - a[2]), (b[1] - b[0]) * (b[3] - b[2]))
+    union_area = max(0, min(a[1], b[1]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[2], b[2]))
+
+    return union_area / float(min_area)
+
+
+def remove_inclusions(n_z_elems, model, overlap_ratio):
     """
     Remove elements included in other elements from the list
     """
+    ### FIXME n_z_elems must be sorted according to prob
+
     l = []
     for i, [s, x, y, sco] in enumerate(n_z_elems):
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
@@ -31,6 +51,9 @@ def remove_inclusions(n_z_elems, model):
                 l[j] = None
             elif include(f, e):
                 l[i] = None
+            elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
+                                           [f[0], f[2], f[1], f[3]]) > overlap_ratio:
+                l[j] = None
     rval = []
     for i, e in enumerate(l):
         if e is None:
@@ -39,7 +62,7 @@ def remove_inclusions(n_z_elems, model):
     return rval
 
 
-def get_rois(n_z_elems, model, enlarge_factor=0.0):
+def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0):
     """
     Return the coords of patches corresponding to
     non-zeros areas after nms execution
@@ -53,7 +76,7 @@ def get_rois(n_z_elems, model, enlarge_factor=0.0):
     RETURNS :
     rois : a list of 2*2 np_arrays indicating areas of interests
     """
-    n_z_elems = remove_inclusions(n_z_elems, model)
+    n_z_elems = remove_inclusions(n_z_elems, model, overlap_ratio)
     rois = []
     scores = []
     for [s, x, y, sco] in n_z_elems:

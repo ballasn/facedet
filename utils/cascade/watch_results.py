@@ -3,7 +3,7 @@ from os.path import join
 import numpy as np
 
 base_dir = '/data/lisa/data/faces/FDDB/'
-file_ = './output/fold-01-out.txt'
+file_ = './results/output/fold-01-out.txt'
 with open(file_, 'r') as f:
 
     for line in f:

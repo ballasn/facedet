@@ -13,7 +13,7 @@ from math import sqrt
 from utils.cascade.protocol_test import cascade
 
 
-def process_fold(models, fprops, scales, sizes, strides, probs,
+def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
                  nb_fold, out_dir,
                  fold_dir2='/u/chassang/Projects/FaceDetection/FDDB_files_lists',
                  fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/",
@@ -54,7 +54,7 @@ def process_fold(models, fprops, scales, sizes, strides, probs,
         # Perform cascade classificiation on image f
         if isfile(f):
             img_ = cv2.imread(f)
-            rois, scores = cascade(img_, models, fprops, scales, sizes, strides, probs)
+            rois, scores = cascade(img_, models, fprops, scales, sizes, strides, overlap_ratio, probs)
             rois_tot.append(rois)
             scores_tot.append(scores)
         else:
@@ -96,28 +96,21 @@ if __name__ == '__main__':
     model_file16 = sys.argv[1]
     model_file48 = sys.argv[2]
     model_file96 = sys.argv[3]
-    sizes = [16]
-    strides = [2]
-    ratio = sqrt(2)
-    global_scales = [0.05 * ratio**e for e in range(5)]
-    local_scales = [global_scales]
-    base_size = max(sizes)
+
 
     #for i in xrange(len(sizes)):
     #    local_scales.append([s * float(sizes[i]) / base_size
     #                         for s in global_scales])
 
-    print 'local_scales', local_scales
 
-    probs = [0.1]
     nb_fold = 1
-    out_dir = './results/output4/'
+    out_dir = './results/output/'
 
     with open(model_file16, 'r') as m_f:
         model16 = pkl.load(m_f)
 
-    #with open(model_file48, 'r') as m_f:
-    #    model48 = pkl.load(m_f)
+    with open(model_file48, 'r') as m_f:
+        model48 = pkl.load(m_f)
 
     #with open(model_file96, 'r') as m_f:
     #    model96 = pkl.load(m_f)
@@ -125,16 +118,34 @@ if __name__ == '__main__':
     # Compile functions
     x = T.tensor4('x')
     predict16 = function([x], model16.fprop(x))
-    #predict48 = function([x], model48.fprop(x))
+    predict48 = function([x], model48.fprop(x))
     #predict96 = function([x], model96.fprop(x))
 
     models = [model16]
     fprops = [predict16]
+    sizes = [16]
+    strides = [2]
+    base_size = max(sizes)
+    probs = [0.5]
+    overlap_ratio = [0.6]
+
+
+    ratio = sqrt(2)
+    global_scales = [0.05 * ratio**e for e in range(5)]
+    local_scales = [global_scales]
+    print 'local_scales', local_scales
+
+
+    assert len(models) == len(fprops)
+    assert len(models) == len(sizes)
+    assert len(models) == len(strides)
+    assert len(models) == len(local_scales)
+
 
     t_orig = time()
     for nb in range(1, 11):
         t0 = time()
-        process_fold(models, fprops, local_scales, sizes, strides, probs,
+        process_fold(models, fprops, local_scales, sizes, strides, probs, overlap_ratio,
                      nb, out_dir, mode='rect')
         t = time()
         print ""
