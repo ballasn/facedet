@@ -38,7 +38,7 @@ class CorrMM2D(OrigConv2D):
         self.output_axes = output_axes
         self._pad = pad
 
-        super(Conv2D, self).__init__(
+        super(CorrMM2D, self).__init__(
             filters=filters,
             img_shape=(batch_size, input_space.num_channels,
                        input_space.shape[0], input_space.shape[1]),
@@ -47,11 +47,9 @@ class CorrMM2D(OrigConv2D):
             filters_shape=filters.get_value(borrow=True).shape,
             message=message
         )
-        if pad == (1, 1):
-            self.conv_op = GpuCorrMM(subsample=self._subsample,
-                                     pad=border_mode)
-        else:
-            self.conv_op = GpuCorrMM(subsample=self._subsample, pad=pad)
+        self.conv_op = GpuCorrMM(subsample=self._subsample,
+                                 border_mode=border_mode,
+                                 pad=pad)
 
     @functools.wraps(P2LT.get_params)
     def get_params(self):
@@ -80,7 +78,7 @@ class CorrMM2D(OrigConv2D):
 
         dot(x, A)
 
-        This method overrides the original Conv2D lmul to make it work
+        This method overrides the original CorrMM2D lmul to make it work
         with arbitrary axis orders
         """
 
@@ -135,7 +133,7 @@ def make_random_conv2D(irange, input_space, output_space,
 
         WRITEME properly
 
-    Creates a Conv2D with random kernels
+    Creates a CorrMM2D with random kernels
     """
 
     rng = make_np_rng(rng, default_seed, which_method='uniform')
@@ -146,7 +144,7 @@ def make_random_conv2D(irange, input_space, output_space,
          kernel_shape[0], kernel_shape[1])
     ))
 
-    return Conv2D(
+    return CorrMM2D(
         filters=W,
         batch_size=batch_size,
         input_space=input_space,
