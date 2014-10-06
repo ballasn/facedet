@@ -54,7 +54,7 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
             res_ = process_image(fprops[i], crop_, scales[i], sizes[i])
 ######################################################
             #res_ = fast_nms(res_, sizes[i], strides[i], probs[i])
-            res = dummy_nms(res, probs[i])
+            res_ = dummy_nms(res_, probs[i])
 ######################################################
 
             rois_, scores_ = get_rois(res_, models[i],
