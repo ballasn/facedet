@@ -16,6 +16,7 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano.tensor.signal.downsample import max_pool_2d
 import theano.tensor as T
 from theano.tensor.signal import downsample
+from theano.compat.six.moves import zip as izip
 
 from pylearn2.costs.mlp import Default
 from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
@@ -66,7 +67,7 @@ logger.debug("MLP changing the recursion limit.")
 # precisely when you're going to exceed the stack segment.
 sys.setrecursionlimit(40000)
 
-from facedet.linear.corrmm2d import corr2d
+from facedet.linear import corrmm2d
 
 class CorrMMElemwise(Layer):
     """
@@ -153,7 +154,7 @@ class CorrMMElemwise(Layer):
                  nonlinearity,
                  irange=None,
                  border_mode='valid',
-                 pad=(1,1),
+                 pad=(0,0),
                  include_prob=1.0,
                  init_bias=0.,
                  W_lr_scale=None,
@@ -171,7 +172,7 @@ class CorrMMElemwise(Layer):
         if (irange is None):
             raise AssertionError("You should specify either irange "
                                  " when calling the constructor of "
-                                 "ConvElemwise.")
+                                 "CorrMMElemwise.")
 
         if pool_type is not None:
             assert pool_shape is not None, ("You should specify the shape of "
@@ -180,8 +181,9 @@ class CorrMMElemwise(Layer):
                                             "the spatial %s-pooling." % pool_type)
 
         assert nonlinearity is not None
-        super(ConvElemwise, self).__init__()
+        super(CorrMMElemwise, self).__init__()
         self.nonlin = nonlinearity
+        pad = tuple(pad)
         self.__dict__.update(locals())
         assert monitor_style in ['classification',
                             'detection'], ("%s.monitor_style"
@@ -207,11 +209,12 @@ class CorrMMElemwise(Layer):
                     kernel_shape=self.kernel_shape,
                     subsample=self.kernel_stride,
                     border_mode=self.border_mode,
+                    pad=self.pad,
                     rng=rng)
 
     def initialize_output_space(self):
         """
-        Initializes the output space of the ConvElemwise layer by taking
+        Initializes the output space of the CorrMMElemwise layer by taking
         pooling operator and the hyperparameters of the convolutional layer
         into consideration as well.
         """
@@ -265,7 +268,16 @@ class CorrMMElemwise(Layer):
 
         rng = self.get_mlp().rng
 
-        if self.border_mode == 'valid':
+
+        if self.pad != (0,0):
+            output_shape = \
+                [int(np.ceil((i_sh + 2. * k_pad - k_sh) / float(k_st))) + 1
+                 for i_sh, k_sh, k_st, k_pad in izip(self.input_space.shape,
+                                                     self.kernel_shape,
+                                                     self.kernel_stride,
+                                                     self.pad)]
+
+        elif self.border_mode == 'valid':
             output_shape = [(self.input_space.shape[0] - self.kernel_shape[0])
                             / self.kernel_stride[0] + 1,
                             (self.input_space.shape[1] - self.kernel_shape[1])
@@ -276,6 +288,10 @@ class CorrMMElemwise(Layer):
                             (self.input_space.shape[1] + self.kernel_shape[1])
                             / self.kernel_stride[1] - 1]
 
+        print "In:", self.input_space.shape, self.kernel_shape, self.kernel_stride, self.pad
+        print "Out:", output_shape
+
+
         self.detector_space = Conv2DSpace(shape=output_shape,
                                           num_channels=self.output_channels,
                                           axes=('b', 'c', 0, 1))
@@ -285,6 +301,7 @@ class CorrMMElemwise(Layer):
         W, = self.transformer.get_params()
         W.name = self.layer_name + '_W'
 
+        assert self.tied_b
         if self.tied_b:
             self.b = sharedX(np.zeros((self.detector_space.num_channels)) +
                              self.init_bias)
@@ -392,7 +409,7 @@ class CorrMMElemwise(Layer):
     @wraps(Layer.get_monitoring_channels_from_state)
     def get_monitoring_channels_from_state(self, state, target=None):
 
-        rval = super(ConvElemwise, self).get_monitoring_channels_from_state(state,
+        rval = super(CorrMMELemwise, self).get_monitoring_channels_from_state(state,
                                                                             target)
 
         cst = self.cost
@@ -441,7 +458,7 @@ class CorrMMElemwise(Layer):
                            ('kernel_norms_max', row_norms.max()),
                            ])
 
-        orval = super(ConvElemwise, self).get_monitoring_channels_from_state(state,
+        orval = super(CorrMMElemwise, self).get_monitoring_channels_from_state(state,
                                                                             targets)
 
         rval.update(orval)
@@ -465,6 +482,7 @@ class CorrMMElemwise(Layer):
         if not hasattr(self, 'tied_b'):
             self.tied_b = False
 
+        assert self.tied_b
         if self.tied_b:
             b = self.b.dimshuffle('x', 0, 'x', 'x')
         else:
@@ -538,7 +556,7 @@ class CorrMMElemwise(Layer):
         KL(P || Q) where P is defined by Y and Q is defined by Y_hat
         KL(P || Q) = p log p - p log q + (1-p) log (1-p) - (1-p) log (1-q)
         """
-        assert self.nonlin.non_lin_name == "sigmoid", ("ConvElemwise "
+        assert self.nonlin.non_lin_name == "sigmoid", ("CorrMMELemwise "
                                                        "supports "
                                                        "cost function "
                                                        "for only "

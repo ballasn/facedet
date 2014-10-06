@@ -44,7 +44,10 @@ from pylearn2.expr.nnet import (elemwise_kl, kl, compute_precision,
 # Only to be used by the deprecation warning wrapper functions
 from pylearn2.costs.mlp import L1WeightDecay as _L1WD
 from pylearn2.costs.mlp import WeightDecay as _WD
+
+
 from pylearn2.models.mlp import Layer
+from pylearn2.models.mlp import get_lr_scalers_from_layers
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +73,15 @@ class LayerList(Layer):
     FIXME
     """
 
-    def __init__(self, layer_name, layer_list):
-        super(LayerList).__init__()
+    def __init__(self, layer_name, layers):
+        super(LayerList, self).__init__()
         self.__dict__.update(locals())
         del self.self
 
     @wraps(Layer.fprop)
     def fprop(self, state_below):
         rval = state_below
-        for l in self.layerlist:
+        for l in self.layers:
             rval = l.fprop(rval)
         return rval
 
@@ -96,7 +99,7 @@ class LayerList(Layer):
         ### set input space for each sublayer
         self.input_space = space
         output = self.input_space
-        for l in self.layerlist:
+        for l in self.layers:
             l.set_input_space(output)
             output = l.output_space
         self.output_space = output
@@ -112,11 +115,11 @@ class LayerList(Layer):
     def _weight_decay_aggregate(self, method_name, coeff):
         if isinstance(coeff, py_float_types):
             return T.sum([getattr(layer, method_name)(coeff)
-                          for layer in self.layerlist])
+                          for layer in self.layers])
         elif is_iterable(coeff):
             assert all(layer_coeff >= 0 for layer_coeff in coeff)
             return T.sum([getattr(layer, method_name)(layer_coeff) for
-                          layer, layer_coeff in safe_zip(self.layerlist, coeff)
+                          layer, layer_coeff in safe_zip(self.layers, coeff)
                           if layer_coeff > 0], dtype=config.floatX)
         else:
             raise TypeError("LayerList's " + method_name + " received "
@@ -133,12 +136,12 @@ class LayerList(Layer):
     def cost(self, Y, Y_hat):
         return sum(layer.cost(Y_elem, Y_hat_elem)
                    for layer, Y_elem, Y_hat_elem in
-                   safe_zip(self.layerlist, Y, Y_hat))
+                   safe_zip(self.layers, Y, Y_hat))
 
     @wraps(Layer.set_mlp)
     def set_mlp(self, mlp):
         super(LayerList, self).set_mlp(mlp)
-        for layer in self.layerlist:
+        for layer in self.layers:
             layer.set_mlp(mlp)
 
     @wraps(Layer.get_layer_monitoring_channels)
@@ -147,7 +150,7 @@ class LayerList(Layer):
         rval = OrderedDict()
         # TODO: reduce redundancy with fprop method
         cur_state_below = state_below
-        for i, layer in enumerate(self.layerlist):
+        for i, layer in enumerate(self.layers):
             if state is not None:
                 cur_state = state[i]
             else:
@@ -166,7 +169,7 @@ class LayerList(Layer):
 
     @wraps(Model._modify_updates)
     def _modify_updates(self, updates):
-        for layer in self.layerlist:
+        for layer in self.layers:
             layer.modify_updates(updates)
 
     @wraps(Layer.get_lr_scalers)
