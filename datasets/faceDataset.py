@@ -30,11 +30,12 @@ class faceDataset(dataset.Dataset):
                  positive_samples,
                  negative_samples,
                  which_set,
-                 ratio = 0.8,
-                 batch_size = 128,
-                 mean = None,
-                 resize_neg = False,
-                 axes = ('b', 'c', 0, 1)):
+                 ratio=0.8,
+                 batch_size=128,
+                 mean=None,
+                 resize_neg=False,
+                 axes=('b', 'c', 0, 1),
+                 nb_examples=[None, None]):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -42,36 +43,53 @@ class faceDataset(dataset.Dataset):
         negative_samples : path to the npy file of - samples
         The current ratio is 0.8 => train 80%, valid 20%
         """
+        # Load data
+        self.positives = np.load(positive_samples)
+        self.negatives = np.load(negative_samples)
 
         if which_set == 'train':
-            self.positives = np.load(positive_samples)
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
-            nb_train -= nb_train % 128
+            # Positives
+            if nb_examples[0] is not None:
+                nb_train = nb_examples[0]
+            else:
+                nb_train = int(np.ceil(ratio * self.positives.shape[0]))
+                nb_train -= nb_train % 128
             self.positives = self.positives[0:nb_train, :]
-            print "positives train shape", self.positives.shape
-            self.negatives = np.load(negative_samples)
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
-            nb_train -= nb_train % 128
+            print "Positives train :", self.positives.shape
+
+            # Negatives
+            if nb_examples[1] is not None:
+                nb_train = nb_examples[1]
+            else:
+                nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
+                nb_train -= nb_train % 128
             self.negatives = self.negatives[0:nb_train, :]
+            # Resizing if needed
             if resize_neg and self.negatives.shape[0] > self.positives.shape[0]:
-                print "here"
+                print "Resizing the negatives"
                 self.negatives = self.negatives[0:self.positives.shape[0], :]
             print resize_neg
-            print "negatives train shape", self.negatives.shape
+            print "Negatives train :", self.negatives.shape
 
         elif which_set == 'valid':
-            self.positives = np.load(positive_samples)
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
-            nb_max = ((self.positives.shape[0]-nb_train)/128) *128 +nb_train
-            self.positives = self.positives[nb_train:nb_max, :]
-            self.negatives = np.load(negative_samples)
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
-            nb_max = ((self.negatives.shape[0]-nb_train)/128) *128 + nb_train
-            self.negatives = self.negatives[nb_train:nb_max, :]
-            print "positives",self.positives.shape
-            print "negatives",self.negatives.shape
-        ### duplicate last line to have nb_pos and nb_neg divisible by batch_size/2
-        batch_size = batch_size / 2
+
+            if nb_examples[0] is not None:
+                nb_train = nb_examples[0]
+            else:
+                nb_train = int(np.ceil((1.0 - ratio) * self.positives.shape[0]))
+            self.positives = self.positives[-nb_train:, :]
+
+            if nb_examples[1] is not None:
+                nb_train = nb_examples[1]
+            else:
+                nb_train = int(np.ceil((1.0 - ratio) * self.negatives.shape[0]))
+            self.negatives = self.negatives[-nb_train:, :]
+
+            print "Positives valid :", self.positives.shape
+            print "Negatives valid :", self.negatives.shape
+
+        # duplicate last line to have nb_pos, nb_neg divisible by batch_size
+        # batch_size = batch_size / 2
         self.nb_pos = self.positives.shape[0]
         self.nb_neg = self.negatives.shape[0]
 
@@ -87,58 +105,57 @@ class faceDataset(dataset.Dataset):
                 self.negatives = np.append(self.negatives,
                                            self.negatives[-1, :].reshape(1, self.negatives.shape[1]),
                                            axis=0)
+        self.nb_pos = self.positives.shape[0]
+        self.nb_neg = self.negatives.shape[0]
 
-        # self.img_shape = [48, 48, 3]
         # Compute img_shape, assuming square images in RGB
         size = int(sqrt(self.positives[0].shape[0] / 3))
         self.img_shape = [size, size, 3]
-        print "image shape :",self.img_shape
+        print "Image shape :", self.img_shape
         self.nb_examples = self.positives.shape[0] + self.negatives.shape[0]
+        print "Examples :", self.nb_examples, self.nb_examples % batch_size
         self.which_set = which_set
         self.axes = axes
 
-        if mean != None:
+        if mean is not None:
             self.mean = np.load(mean)
         else:
-            self.mean = np.load('/data/lisatmp3/ballasn/facedet/datasets/aflw/mean_16pascal.npy')
-        #tmp = np.reshape(self.mean, self.img_shape)
-        #cv2.imshow("mean ", np.asarray(tmp, dtype=np.uint8))
-        #cv2.waitKey(0)
-
-
+            self.mean = None
+        # else:
+        #    self.mean = np.load('/data/lisatmp3/ballasn/facedet/datasets/aflw/mean_16pascal.npy')
+        # tmp = np.reshape(self.mean, self.img_shape)
+        # cv2.imshow("mean ", np.asarray(tmp, dtype=np.uint8))
+        # cv2.waitKey(0)
 
         print self.positives.shape[0], self.negatives.shape[0]
-
 
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
                       data_specs, return_tuple):
 
-
-        ### Initialize data
+        # Initialize data
         x = np.zeros([minibatch_size, self.positives.shape[1]],
-                     dtype = "float32")
+                     dtype="float32")
         y = np.zeros([minibatch_size, 2],
                      dtype="float32")
 
-
-        ### Get number of positives and negatives examples
-        #nb_pos = int(0.5 * minibatch_size)
+        # Get number of positives and negatives examples
+        # nb_pos = int(0.5 * minibatch_size)
         nb_pos = int(np.random.rand() * minibatch_size)
-        #print nb_pos,
+        # print nb_pos,
         nb_neg = minibatch_size - nb_pos
 
-        ### nb_examples must be divisible by minibatch_size
+        # nb_examples must be divisible by minibatch_size
 
         if (cur_negatives + nb_neg >= self.negatives.shape[0]):
             nb_neg = self.negatives.shape[0] - cur_negatives
-            nb_pos =  minibatch_size - nb_neg
+            nb_pos = minibatch_size - nb_neg
         if (cur_positives + nb_pos >= self.positives.shape[0]):
             nb_pos = self.positives.shape[0] - cur_positives
-            nb_neg =  minibatch_size - nb_pos
+            nb_neg = minibatch_size - nb_pos
 
-        ### Fill minibatch
-        #print "cur_positives, nb_pos, cur_negatives,nb_neg"
+        # Fill minibatch
+        # print "cur_positives, nb_pos, cur_negatives,nb_neg"
         #print cur_positives, nb_pos, cur_negatives,nb_neg
         x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
         y[0:nb_pos, 0] = 1
@@ -146,7 +163,8 @@ class faceDataset(dataset.Dataset):
         y[nb_pos:nb_pos+nb_neg, 1] = 1
 
         # remove mean
-        x -= self.mean
+        if self.mean is not None:
+            x -= self.mean
         #x /= 255.0
 
         x = np.reshape(x, [minibatch_size] + self.img_shape)
@@ -253,9 +271,9 @@ class FaceIterator:
 
     def next(self):
         if self._cur_pos >= self._num_pos and self._cur_neg >= self._num_neg:
-            print "stopIteration :"
-            print self.num_examples
-            print self._num_batches
+            print "stopIteration :",
+            print self.num_examples, 'ex',
+            print self._num_batches, 'batches'
             raise StopIteration()
         else:
             data, self._cur_pos, self._cur_neg = \
