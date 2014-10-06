@@ -1,0 +1,135 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:faceDataset.faceDataset {
+        which_set: 'train',
+        positive_samples: "/data/lisatmp3/chassang/facedet/16/pos100_good.npy",
+        negative_samples: "/data/lisatmp3/chassang/facedet/16/neg100_good.npy",
+        resize_neg: True,
+        ratio: 1,
+        mean: './mean_16.npy'
+        },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+                layers: [
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c0',
+                     output_channels: 64,
+                     kernel_shape: [3,3],
+                     irange: .1,
+                     max_kernel_norm: 0.7,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 4 
+                     },
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c1',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     irange: .1,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 4 
+                     },
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c2',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     irange: .1,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 4 
+                     },
+                     tied_b: 1,
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c3',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     irange: .1,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 4 
+                     },
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c4',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     irange: .1,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 4 
+                     },
+                     tied_b: 1
+                 },
+         !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c5',
+                     output_channels: 64,
+                     kernel_shape: [6,6],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     tied_b: 1,
+                     W_lr_scale: 0.1,
+                     b_lr_scale: 0.1,
+                     nonlinearity: !obj:models.layer.nonLinearity.MaxoutBC01 {
+                        num_pieces: 32 
+                     },
+
+                 },
+                 !obj:models.layer.SigmoidBC01Extended.SigmoidExtended {
+                     layer_name: 'y',
+                     n_classes: 2,
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [16, 16],
+            num_channels: 3,
+            axes: ['b', 'c', 0, 1],
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .001,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: 0.1,
+        },
+        train_iteration_mode: 'batchwise_shuffled_sequential',
+        monitor_iteration_mode: 'even_sequential',
+        monitoring_dataset:
+            {
+                'train' : *train,
+                'valid' : !obj:faceDataset.faceDataset {
+                        which_set: 'train',
+                        positive_samples: "/data/lisatmp3/ballasn/facedet/datasets/aflw/feats16.npy",
+                        negative_samples: "/data/lisatmp3/ballasn/facedet/datasets/pascal/neg100000_16.npy",
+                        resize_neg: True,
+                        mean: './mean_16.npy'
+                      },
+            },
+         #cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
+         #   input_include_probs: { 'c0' : .5, 'c1' : .5, 'c2': .5, 'c5' : .5},
+         #   input_scales: { 'c0' : 1., 'c1' : 1., 'c2': 1., 'c5' : 1., 'y': 1.}
+         #},
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 1000,
+            new_epochs: True
+        },
+    },
+
+    extensions: [
+         !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+              start: 5,
+              saturate: 60,
+              decay_factor: 0.01
+        },
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            start: 5,
+            saturate: 250,
+            final_momentum: .9
+        },
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                channel_name: 'valid_y_misclass',
+                save_path: "models/maxout16_best.pkl"
+            }
+    ],
+    save_path: "models/maxout16.pkl",
+    save_freq: 5
+}
