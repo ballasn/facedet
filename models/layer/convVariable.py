@@ -270,6 +270,7 @@ class ConvElemwise(Layer):
                                             dummy_detector.shape[3]],
                                             num_channels=num_channels,
                                             axes=('b', 'c', 0, 1))
+        print self.output_space.shape, self.output_space.num_channels 
 
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
@@ -306,6 +307,7 @@ class ConvElemwise(Layer):
         W, = self.transformer.get_params()
         W.name = self.layer_name + '_W'
 
+        assert self.tied_b
         if self.tied_b:
             self.b = sharedX(np.zeros((self.detector_space.num_channels)) +
                              self.init_bias)
@@ -486,6 +488,8 @@ class ConvElemwise(Layer):
         if not hasattr(self, 'tied_b'):
             self.tied_b = False
 
+        print self.layer_name
+        assert self.tied_b
         if self.tied_b:
             b = self.b.dimshuffle('x', 0, 'x', 'x')
         else:

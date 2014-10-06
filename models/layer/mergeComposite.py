@@ -102,6 +102,7 @@ class MergeComposite(Layer):
         shp1 = space.components[0].shape
         for e in space.components[1:]:
             shp2 = e.shape
+            print 'shape:',shp1, shp2
             assert shp1[0] == shp2[0] and shp1[1] == shp2[1]
             shp1 = e.shape
 
