@@ -8,13 +8,71 @@ import getopt
 import numpy as np
 import cPickle as pkl
 from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
-from utils.layer.convVariable import ConvElemwise
+from models.layer.convVariable import ConvElemwise
 from utils.layer.SoftmaxBC01Extended import SoftmaxExtended
 from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectifiedLinear, RectifierConvNonlinearity, SigmoidConvNonlinearity, TanhConvNonlinearity
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
 from copy import deepcopy
 
+
+def generateConvRegressor(teacher_hintlayer, student_layer):
+  
+  layer_name = 'hint_regressor'
+  out_ch = teacher_hintlayer.get_output_space().num_channels
+  ks0 = student_layer.get_output_space().shape[0] - teacher_hintlayer.get_output_space().shape[0] + 1
+  ks1 = student_layer.get_output_space().shape[1] - teacher_hintlayer.get_output_space().shape[1] + 1
+  ks = [ks0, ks1]
+  irng = 0.05
+  mkn = 0.9
+  tb = 1  
+    
+  if isinstance(teacher_hintlayer, MaxoutConvC01B):
+    raise NotImplementedError("Maxout not implemented")
+  elif isinstance(teacher_hintlayer, ConvRectifiedLinear):
+    nonlin = RectifierConvNonlinearity()
+    hint_reg_layer = ConvElemwise(output_channels = out_ch,
+				  kernel_shape = ks,
+				  layer_name = layer_name,
+				  nonlinearity = nonlin,
+				  irange = irng,
+				  max_kernel_norm = mkn,
+				  tied_b = tb)
+				  
+  elif isinstance(teacher_hintlayer, ConvElemwise):
+    nonlin = teacher_hintlayer.nonlinearity
+    hint_reg_layer = ConvElemwise(output_channels = out_ch,
+				  kernel_shape = ks,
+				  layer_name = layer_name,
+				  nonlinearity = nonlin,
+				  irange = irng,
+				  max_kernel_norm = mkn,
+				  tied_b = tb)    
+  else:
+    raise AssertionError("Unknown layer type")
+  
+  return hint_reg_layer
+      
+def generateNonConvRegressor(teacher_hintlayer, student_output_space):
+  dim = teacher_hintlayer.output_space.get_total_dimension()
+  layer_name = 'hint_regressor'
+    
+  if isinstance(teacher_hintlayer, MaxoutConvC01B):
+    hint_reg_layer = Maxout(layer_name, dim, 2, irange= .005, max_col_norm= 1.9365)
+  elif isinstance(teacher_hintlayer, ConvRectifiedLinear):
+    hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
+  elif isinstance(teacher_hintlayer, ConvElemwise):
+    if isinstance(teacher_hintlayer.nonlinearity,RectifierConvNonlinearity):
+      hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
+    elif isinstance(teacher_hintlayer.nonlinearity,SigmoidConvNonlinearity) or isinstance(teacher_hintlayer.nonlinearity,TanhConvNonlinearity):
+      hint_reg_layer = Sigmoid(dim=dim, layer_name=layer_name, irange=0.05)
+    else:
+      raise AssertionError("Unknown layer type")
+  else:
+      raise AssertionError("Unknown layer type")
+  
+  return hint_reg_layer
+      
 def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
       
   # Check if we are in the softmax layers
@@ -26,8 +84,24 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
     # Retrieve student subnetwork
     if fromto_student[1] < len(student.model.layers)-1:
       del student.model.layers[fromto_student[1]+1:] 
+      
+      
+    teacher_output_space = teacher.layers[hintlayer].get_output_space()
+    student_output_space = student.model.layers[fromto_student[1]].get_output_space()
+         
+    if teacher_output_space.shape < student_output_space.shape or (teacher_output_space.num_channels > student_output_space.num_channels and teacher_output_space.shape == student_output_space.shape):
+      # Add convolutional regressor
+      hint_reg_layer = generateConvRegressor(teacher.layers[hintlayer], student.model.layers[-1])
+      convReg = True
+    elif teacher_output_space.shape > student_output_space.shape:
+      # Add mlp regressor
+      hint_reg_layer = generateNonConvRegressor(teacher.layers[hintlayer], student_output_space)
+      convReg = False
+    else:
+      # Do nothing
+      pass
     
-    # Add regressor if hint layer has more outputs than corresponding student layer
+    # Add regressor if needed
     if teacher.layers[hintlayer].get_output_space().num_channels > student.model.layers[fromto_student[1]].get_output_space().num_channels:
       dim = teacher.layers[hintlayer].output_space.get_total_dimension()
       layer_name = 'hint_regressor'
@@ -51,7 +125,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
     student.model.layers.append(hint_reg_layer)
 
     # Change cost to optimize wrt teacher hints
-    student.algorithm.cost = TeacherHintRegressionCost(teacher,hintlayer,False)
+    student.algorithm.cost = TeacherHintRegressionCost(teacher,hintlayer,convreg)
     
     # Set monitor_targets to false
     student.model.monitor_targets = False
@@ -88,13 +162,10 @@ def main(argv):
   #student_layers = [2,5,7]
   #teacher_layers = [0,2,4]
   
-  #student_layers = [2,4] 
-  #teacher_layers = [0,2]
+  student_layers = [2,4] 
+  teacher_layers = [0,2]
   #[[0,2],[2,4]]
 
-  student_layers = [2,5] 
-  teacher_layers = [0,1]
-  
   # Load student
   with open(student_yaml, "r") as sty:
     student = yaml_parse.load(sty)
@@ -126,7 +197,7 @@ def main(argv):
 
     # Retrieve student subnetwork and add regression to teacher layer
     student_hint = splitStudentNetwork(student_aux, [bottom_layer, top_layer], teacher_aux, teacher_layers[i])
-    
+        
     # Train student subnetwork
     student_hint.main_loop()
       
