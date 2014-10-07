@@ -3,6 +3,7 @@
         which_set: 'train',
         positive_samples: "/data/lisatmp3/ballasn/facedet/datasets/aflw/feats48.npy",
         negative_samples: "/data/lisatmp3/ballasn/facedet/datasets/pascal/neg100000_48_filtdsn.npy",
+        mean: '/data/lisatmp3/ballasn/facedet/datasets/aflw/mean_48pascaldsn.npy'
 #        resize_neg: False,
     },
     model: !obj:pylearn2.models.mlp.MLP {
@@ -132,6 +133,7 @@
                         which_set: 'valid',
                         positive_samples: "/data/lisatmp3/ballasn/facedet/datasets/aflw/feats48.npy",
                         negative_samples: "/data/lisatmp3/ballasn/facedet/datasets/pascal/neg100000_48_filt.npy",
+                        mean: '/data/lisatmp3/ballasn/facedet/datasets/aflw/mean_48pascaldsn.npy'
                       },
             },
         cost: !obj:pylearn2.costs.mlp.dsn.DSN {

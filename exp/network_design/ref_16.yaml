@@ -52,7 +52,7 @@
           input_space: !obj:pylearn2.space.Conv2DSpace {
               shape: [16, 16],
               num_channels: 3,
-              axes: ['c', 0, 1, 'b'],
+              axes: ['b', 'c', 0, 1],
           },
       },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
