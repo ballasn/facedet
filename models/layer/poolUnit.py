@@ -112,10 +112,14 @@ class PoolUnit(Layer):
         if self.pool_type is not None:
             assert self.pool_type in ['max', 'mean']
             if self.pool_type == 'max':
-                dummy_p = max_pool(bc01=dummy_detector,
-                                   pool_shape=self.pool_shape,
-                                   pool_stride=self.pool_stride,
-                                   image_shape=self.input_space.shape)
+                dummy_p = downsample.max_pool_2d(dummy_detector,
+                                                 self.pool_shape,
+                                                 ignore_border=False)
+
+                # dummy_p = max_pool(bc01=dummy_detector,
+                #                    pool_shape=self.pool_shape,
+                #                    pool_stride=self.pool_stride,
+                #                    image_shape=self.input_space.shape)
             elif self.pool_type == 'mean':
                 dummy_p = mean_pool(bc01=dummy_detector,
                                     pool_shape=self.pool_shape,
