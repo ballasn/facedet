@@ -35,14 +35,16 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         (x, y) = data
                 
         targets = T.argmax(y, axis=1)
+        
+        axes = model.input_space.axes
                         
         # Compute student output
         Ps_y_given_x = model.fprop(x)
         
-        Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[0],
-                       Ps_y_given_x.shape[1]*
-                       Ps_y_given_x.shape[2]*
-                       Ps_y_given_x.shape[3]),ndim=2)
+        Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[axes.index('b')],
+                       Ps_y_given_x.shape[axes.index('c')]*
+                       Ps_y_given_x.shape[axes.index(0)]*
+                       Ps_y_given_x.shape[axes.index(1)]),ndim=2)
                        
         # Compute cost
 	rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
@@ -54,13 +56,15 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         space, sources = self.get_data_specs(model)
         space.validate(data)
         (x, y) = data
+        
+        axes = model.input_space.axes
                                                 
         # Compute teacher relaxed output
 	Pt_y_given_x_relaxed = self.teacher.fprop(x)
-        Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[0],
-			       Pt_y_given_x_relaxed.shape[1]*
-			       Pt_y_given_x_relaxed.shape[2]*
-			       Pt_y_given_x_relaxed.shape[3]),ndim=2)	
+        Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[axes.index('b')],
+			       Pt_y_given_x_relaxed.shape[axes.index('c')]*
+			       Pt_y_given_x_relaxed.shape[axes.index(0)]*
+			       Pt_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
 	
 
 	# Relax student softmax layer using relaxation_term.
@@ -71,10 +75,10 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         # Compute student relaxed output
         Ps_y_given_x_relaxed = model.fprop(x)
         
-        Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[0],
-			       Ps_y_given_x_relaxed.shape[1]*
-			       Ps_y_given_x_relaxed.shape[2]*
-			       Ps_y_given_x_relaxed.shape[3]),ndim=2)	
+        Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[axes.index('b')],
+			       Ps_y_given_x_relaxed.shape[axes.index('c')]*
+			       Ps_y_given_x_relaxed.shape[axes.index(0)]*
+			       Ps_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
                 
 	# Compute cost
         rval = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
@@ -92,6 +96,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         kwargs : dict
             Optional extra arguments. Not used by the base class.
         """
+        
 	cost_wrt_y = self.cost_wrt_target(model,data)
         cost_wrt_teacher = self.cost_wrt_teacher(model,data)
         
