@@ -144,16 +144,19 @@ def main(argv):
   teacher = student.algorithm.cost.teacher
   
   # Load hints
-  student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
-  teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
+  if student.algorithm.cost.hints is not None:
+    student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
+    teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
  
-  assert len(student_layers) == len(teacher_layers)
-  n_hints = len(student_layers)
-  assert max(student_layers) <= len(student.model.layers)-2
-  if isinstance(teacher.layers[-1], SoftmaxExtended):
-    assert max(teacher_layers) <= len(teacher.layers)-3
+    assert len(student_layers) == len(teacher_layers)
+    n_hints = len(student_layers)
+    assert max(student_layers) <= len(student.model.layers)-2
+    if isinstance(teacher.layers[-1], SoftmaxExtended):
+      assert max(teacher_layers) <= len(teacher.layers)-3
+    else:
+      assert max(teacher_layers) <= len(teacher.layers)-2
   else:
-    assert max(teacher_layers) <= len(teacher.layers)-2
+    n_hints = 0
   
   # Train layers with teacher hints 
   for i in range(n_hints):

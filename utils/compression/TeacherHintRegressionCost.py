@@ -1,9 +1,8 @@
 import theano.tensor as T
 import cPickle as pkl
 from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
-from utils.layer.convVariable import ConvElemwise
 from theano.compat.python2x import OrderedDict
-from utils.layer.convVariable import ConvElemwise
+from models.layer.convVariable import ConvElemwise
 from pylearn2.models.mlp import TanhConvNonlinearity
 
 

@@ -196,7 +196,10 @@ class faceDataset(dataset.Dataset):
         ### Displaying pictures to check that pos!=neg
 
         #print "return batch", cur_negatives, cur_negatives
-        return (x, y), cur_positives, cur_negatives
+        if len(data_specs[1]) > 1:
+	  return (x, y), cur_positives, cur_negatives
+	else:
+	  return (x,), cur_positives, cur_negatives
 
 
 
