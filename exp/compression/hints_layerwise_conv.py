@@ -9,7 +9,7 @@ import numpy as np
 import cPickle as pkl
 from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
 from models.layer.convVariable import ConvElemwise
-from utils.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.SoftmaxBC01Extended import SoftmaxExtended
 from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectifiedLinear, RectifierConvNonlinearity, SigmoidConvNonlinearity, TanhConvNonlinearity
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
@@ -50,7 +50,7 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
 				  tied_b = tb)    
   else:
     raise AssertionError("Unknown layer type")
-  
+    
   return hint_reg_layer
       
 def generateNonConvRegressor(teacher_hintlayer, student_output_space):
@@ -88,44 +88,26 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
       
     teacher_output_space = teacher.layers[hintlayer].get_output_space()
     student_output_space = student.model.layers[fromto_student[1]].get_output_space()
-         
+    
+    # Add regressor to the student subnetwork if needed
     if teacher_output_space.shape < student_output_space.shape or (teacher_output_space.num_channels > student_output_space.num_channels and teacher_output_space.shape == student_output_space.shape):
       # Add convolutional regressor
       hint_reg_layer = generateConvRegressor(teacher.layers[hintlayer], student.model.layers[-1])
-      convReg = True
+      hint_reg_layer.set_mlp(student.model)  
+      hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
+      student.model.layers.append(hint_reg_layer)
     elif teacher_output_space.shape > student_output_space.shape:
       # Add mlp regressor
       hint_reg_layer = generateNonConvRegressor(teacher.layers[hintlayer], student_output_space)
-      convReg = False
+      hint_reg_layer.set_mlp(student.model)  
+      hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
+      student.model.layers.append(hint_reg_layer)
     else:
       # Do nothing
       pass
-    
-    # Add regressor if needed
-    if teacher.layers[hintlayer].get_output_space().num_channels > student.model.layers[fromto_student[1]].get_output_space().num_channels:
-      dim = teacher.layers[hintlayer].output_space.get_total_dimension()
-      layer_name = 'hint_regressor'
-      if isinstance(teacher.layers[hintlayer], MaxoutConvC01B):
-	hint_reg_layer = Maxout(layer_name, dim, 2, irange= .005, max_col_norm= 1.9365)
-      elif isinstance(teacher.layers[hintlayer], ConvRectifiedLinear):
-	hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
-      elif isinstance(teacher.layers[hintlayer], ConvElemwise):
-	if isinstance(teacher.layers[hintlayer].nonlinearity,RectifierConvNonlinearity):
-	  hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
-	elif isinstance(teacher.layers[hintlayer].nonlinearity,SigmoidConvNonlinearity) or isinstance(teacher.layers[hintlayer].nonlinearity,TanhConvNonlinearity):
-	  hint_reg_layer = Sigmoid(dim=dim, layer_name=layer_name, irange=0.05)
-	else:
-	  raise AssertionError("Unknown layer type")
-      else:
-	raise AssertionError("Unknown layer type")
-      
-    # Include regressor layer in student subnetwork  
-    hint_reg_layer.set_mlp(student.model)  
-    hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
-    student.model.layers.append(hint_reg_layer)
 
     # Change cost to optimize wrt teacher hints
-    student.algorithm.cost = TeacherHintRegressionCost(teacher,hintlayer,convreg)
+    student.algorithm.cost = TeacherHintRegressionCost(teacher,hintlayer)
     
     # Set monitor_targets to false
     student.model.monitor_targets = False
@@ -149,32 +131,22 @@ def main(argv):
   
   try:
     opts, args = getopt.getopt(argv, '')
-    teacher_pkl = args[0] 
-    student_yaml = args[1]
+    student_yaml = args[0]
   except getopt.GetoptError:
     usage()
     sys.exit(2) 
-  
-  if not os.path.exists(student_savepath):
-    os.makedirs(student_savepath)
-  
-  # Layers correspondance (hints)
-  #student_layers = [2,5,7]
-  #teacher_layers = [0,2,4]
-  
-  student_layers = [2,4] 
-  teacher_layers = [0,2]
-  #[[0,2],[2,4]]
 
   # Load student
   with open(student_yaml, "r") as sty:
     student = yaml_parse.load(sty)
     
   # Load teacher network
-  fo = open(teacher_pkl, 'r')
-  teacher = pkl.load(fo)
-  fo.close()
+  teacher = student.algorithm.cost.teacher
   
+  # Load hints
+  student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
+  teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
+ 
   assert len(student_layers) == len(teacher_layers)
   n_hints = len(student_layers)
   assert max(student_layers) <= len(student.model.layers)-2
@@ -207,7 +179,7 @@ def main(argv):
   print 'Training student softmax layer'
 
   # Train softmax layer and stack it to the pretrained student network
-  softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1)  
+  softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1) 
   softmax_hint.main_loop()
   student.model.layers[-1] = softmax_hint.model.layers[-1]
       

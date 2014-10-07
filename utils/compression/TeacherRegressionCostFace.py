@@ -13,11 +13,10 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     # (X, Y) pair, and Y cannot be None.
     supervised = True
     
-    def __init__(self, teacher_path, relaxation_term=1, weight=1):
+    def __init__(self, teacher_path, relaxation_term=1, weight=1, hints=None):
       self.relaxation_term = relaxation_term
       
       # Load teacher network and change parameters according to relaxation_term.
-      print teacher_path
       fo = open(teacher_path, 'r')
       teacher = pkl.load(fo)
       fo.close()
@@ -28,6 +27,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 
       self.teacher = teacher
       self.weight = weight
+      self.hints = hints
       
     def cost_wrt_target(self, model, data):
         space, sources = self.get_data_specs(model)

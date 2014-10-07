@@ -17,17 +17,20 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
     # (X, Y) pair, and Y cannot be None.
     supervised = False
     
-    def __init__(self, teacher, hintlayer, convreg):      
+    def __init__(self, teacher, hintlayer):  
+    
       # Load teacher network.
-      #fo = open(teacher_path, 'r')
-      #teacher = pkl.load(fo)
-      #fo.close()
-      
-      del teacher.layers[hintlayer+1:]
+      if isinstance(teacher, str):
+	fo = open(teacher, 'r')
+	teacher_model = pkl.load(fo)
+	fo.close()
+      else:
+	teacher_model = teacher
+	
+      del teacher_model.layers[hintlayer+1:]
 
-      self.teacher = teacher
+      self.teacher = teacher_model
       self.hintlayer = hintlayer
-      self.convreg = convreg
 
     def expr(self, model, data, ** kwargs):
         """
@@ -58,11 +61,12 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
 	  hint = (hint + 1) / float(2)
         
         # Change teacher format if non-convolutional regressor
-        if not self.convreg
+	if hasattr(model.layers[-1].get_output_space(),'dim'):
 	  hint = hint.reshape(shape=(hint.shape[0],
-				    hint.shape[1]*
-				    hint.shape[2]*
-				    hint.shape[3]),ndim=2)
+				      hint.shape[1]*
+				      hint.shape[2]*
+				      hint.shape[3]),ndim=2)
+				      
 
 	# Compute cost
         cost = 0.5*(hint - student_output)**2
