@@ -48,8 +48,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
                        
         # Compute cost
 	rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
-
-        
+	
         return rval
         
     def cost_wrt_teacher(self, model, data):

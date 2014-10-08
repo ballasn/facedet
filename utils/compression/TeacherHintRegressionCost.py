@@ -46,6 +46,8 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
         space, sources = self.get_data_specs(model)
         space.validate(data)
         x = data
+        
+        axes = model.input_space.axes
 	                    
         # Compute student output
         student_output = model.fprop(x)
@@ -61,15 +63,17 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
         
         # Change teacher format if non-convolutional regressor
 	if hasattr(model.layers[-1].get_output_space(),'dim'):
-	  hint = hint.reshape(shape=(hint.shape[0],
-				      hint.shape[1]*
-				      hint.shape[2]*
-				      hint.shape[3]),ndim=2)
-				      
-
-	# Compute cost
-        cost = 0.5*(hint - student_output)**2
-        #cost = T.sum(cost, axis=1)
+	  hint = hint.reshape(shape=(hint.shape[axes.index('b')],
+				      hint.shape[axes.index('c')]*
+				      hint.shape[axes.index(0)]*
+				      hint.shape[axes.index(1)]),ndim=2)	      
+	  # Compute cost
+	  cost = 0.5*(hint - student_output)**2
+	  #cost = T.sum(cost, axis=1) 
+	else:
+	  # Compute cost
+	  cost = 0.5*(hint - student_output)**2
+	  #cost = T.sum(cost, axis=[1,2,3])
         
         return T.mean(cost)
         
