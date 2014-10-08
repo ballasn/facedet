@@ -53,7 +53,7 @@ class DSN(DSNBase):
 
         state_below = X
 
-        cost = []
+        costs = []
         for layer in model.layers:
             layer_name = layer.layer_name
             state_below = layer.fprop(state_below)
