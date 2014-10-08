@@ -10,7 +10,7 @@ import cPickle as pkl
 from math import sqrt
 
 
-def compute_test_accuracy(model, out_dir,nfolds):
+def compute_test_accuracy(model, out_dir, nfolds):
     sizes = [16]
     strides = [2]
     ratio = sqrt(2)
@@ -19,7 +19,6 @@ def compute_test_accuracy(model, out_dir,nfolds):
     base_size = max(sizes)
 
     probs = [0.1]
-    nb_fold = 1
 
     # Compile functions
     x = T.tensor4('x')

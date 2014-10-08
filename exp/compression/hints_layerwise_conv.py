@@ -187,7 +187,7 @@ def main(argv):
   student.model.layers[-1] = softmax_hint.model.layers[-1]
       
   # TODO: Finetune student network and save it
-    
+  student.main_loop()
   
 if __name__ == "__main__":
   main(sys.argv[1:])
