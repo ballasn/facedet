@@ -8,9 +8,13 @@
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 128,
                 layers: [
+
+                 ### Inception Modules
                  !obj:pylearn2.models.mlp.CompositeLayer {
                      layer_name: 'composite',
                      layers:[
+
+
                          !obj:models.layer.convVariable.ConvElemwise {
                              layer_name: 'c0',
                              output_channels: 128,

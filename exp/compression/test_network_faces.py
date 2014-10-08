@@ -10,8 +10,7 @@ import cPickle as pkl
 from math import sqrt
 
 
-def compute_test_accuracy(model, out_dir):
-    nfolds = 1
+def compute_test_accuracy(model, out_dir,nfolds):
     sizes = [16]
     strides = [2]
     ratio = sqrt(2)
@@ -47,13 +46,15 @@ if __name__ == '__main__':
   # Parse arguments
   _, teacher_path, student_path, out_dir = sys.argv
   
+  nfolds = 10
+  
   # Load student model
   with open(teacher_path, 'r') as s_p:
     teacher = pkl.load(s_p)
   
   # Evaluate teacher
   start_time_teacher = time()
-  acc_teacher = compute_test_accuracy(teacher, out_dir+'_teacher')
+  acc_teacher = compute_test_accuracy(teacher, out_dir+'_teacher',nfolds)
   elapsed_time_teacher = time() - start_time_teacher
   
   # Load student model
@@ -62,7 +63,7 @@ if __name__ == '__main__':
 
   # Evaluate student
   start_time_student = time()
-  acc_student = compute_test_accuracy(student, out_dir+'_student')
+  acc_student = compute_test_accuracy(student, out_dir+'_student',nfolds)
   elapsed_time_student = time() - start_time_student
 
   # Evaluate performance/time  

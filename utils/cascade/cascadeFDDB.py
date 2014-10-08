@@ -121,18 +121,19 @@ if __name__ == '__main__':
     predict48 = function([x], model48.fprop(x))
     #predict96 = function([x], model96.fprop(x))
 
-    models = [model16]
-    fprops = [predict16]
-    sizes = [16]
-    strides = [2]
+    models = [model16, model48]
+    fprops = [predict16, predict48]
+    sizes = [16, 48]
+    strides = [2, 2]
     base_size = max(sizes)
-    probs = [0.5]
-    overlap_ratio = [0.6]
+    probs = [0.5, 0.9]
+    overlap_ratio = [0.8, 0.3]
 
 
     ratio = sqrt(2)
-    global_scales = [0.05 * ratio**e for e in range(5)]
-    local_scales = [global_scales]
+    global_scales = [(1.0/ratio)**e for e in range(5, 11)]
+    global_scales2 = [(1.0/ratio)**e for e in range(1, 11)]
+    local_scales = [global_scales, global_scales2]
     print 'local_scales', local_scales
 
 

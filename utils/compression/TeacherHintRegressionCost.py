@@ -1,9 +1,8 @@
 import theano.tensor as T
 import cPickle as pkl
 from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
-from utils.layer.convVariable import ConvElemwise
 from theano.compat.python2x import OrderedDict
-from utils.layer.convVariable import ConvElemwise
+from models.layer.convVariable import ConvElemwise
 from pylearn2.models.mlp import TanhConvNonlinearity
 
 
@@ -17,15 +16,19 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
     # (X, Y) pair, and Y cannot be None.
     supervised = False
     
-    def __init__(self, teacher, hintlayer):      
+    def __init__(self, teacher, hintlayer):  
+    
       # Load teacher network.
-      #fo = open(teacher_path, 'r')
-      #teacher = pkl.load(fo)
-      #fo.close()
-      
-      del teacher.layers[hintlayer+1:]
+      if isinstance(teacher, str):
+	fo = open(teacher, 'r')
+	teacher_model = pkl.load(fo)
+	fo.close()
+      else:
+	teacher_model = teacher
+	
+      del teacher_model.layers[hintlayer+1:]
 
-      self.teacher = teacher
+      self.teacher = teacher_model
       self.hintlayer = hintlayer
 
     def expr(self, model, data, ** kwargs):
@@ -56,16 +59,17 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
 	if isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
 	  hint = (hint + 1) / float(2)
         
-        # Change teacher format (1 vector of features instead of one feature map)
-        hint = hint.reshape(shape=(hint.shape[0],
-			           hint.shape[1]*
-			           hint.shape[2]*
-			           hint.shape[3]),ndim=2)
+        # Change teacher format if non-convolutional regressor
+	if hasattr(model.layers[-1].get_output_space(),'dim'):
+	  hint = hint.reshape(shape=(hint.shape[0],
+				      hint.shape[1]*
+				      hint.shape[2]*
+				      hint.shape[3]),ndim=2)
+				      
 
 	# Compute cost
-        #cost = -T.log(student_output) * hint 
         cost = 0.5*(hint - student_output)**2
-        cost = T.sum(cost, axis=1)
+        #cost = T.sum(cost, axis=1)
         
         return T.mean(cost)
         

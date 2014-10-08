@@ -35,7 +35,8 @@ class faceDataset(dataset.Dataset):
                  mean=None,
                  resize_neg=False,
                  axes=('b', 'c', 0, 1),
-                 nb_examples=[None, None]):
+                 nb_examples=[None, None],
+                 keep_ids=False):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -129,6 +130,10 @@ class faceDataset(dataset.Dataset):
 
         print self.positives.shape[0], self.negatives.shape[0]
 
+        self.keep_ids = keep_ids
+        if self.keep_ids:
+            self.ids_order = []
+
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
                       data_specs, return_tuple):
@@ -175,6 +180,13 @@ class faceDataset(dataset.Dataset):
         #    cv2.imshow("negatif " + str(i), np.asarray(x[i],dtype=np.uint8))
         #cv2.waitKey(0)
 
+        if self.keep_ids:
+            for i in xrange(0, nb_pos):
+                self.ids_order.append(cur_positives + i)
+            for i in xrange(0, nb_neg):
+                self.ids_order.append(cur_negatives + i)
+
+
         ### Return b c 0 1
         x = np.transpose(x, (0, 3, 1, 2))
         ### print x.shape
@@ -184,7 +196,10 @@ class faceDataset(dataset.Dataset):
         ### Displaying pictures to check that pos!=neg
 
         #print "return batch", cur_negatives, cur_negatives
-        return (x, y), cur_positives, cur_negatives
+        if len(data_specs[1]) > 1:
+	  return (x, y), cur_positives, cur_negatives
+	else:
+	  return (x,), cur_positives, cur_negatives
 
 
 

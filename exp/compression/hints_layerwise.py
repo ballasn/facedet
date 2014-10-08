@@ -8,8 +8,8 @@ import getopt
 import numpy as np
 import cPickle as pkl
 from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
-from utils.layer.convVariable import ConvElemwise
-from utils.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.convVariable import ConvElemwise
+from models.layer.SoftmaxBC01Extended import SoftmaxExtended
 from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectifiedLinear, RectifierConvNonlinearity, SigmoidConvNonlinearity, TanhConvNonlinearity
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
@@ -75,33 +75,21 @@ def main(argv):
   
   try:
     opts, args = getopt.getopt(argv, '')
-    teacher_pkl = args[0] 
-    student_yaml = args[1]
+    student_yaml = args[0]
   except getopt.GetoptError:
     usage()
     sys.exit(2) 
-
-  student_savepath = './models/student_nets/'
   
-  if not os.path.exists(student_savepath):
-    os.makedirs(student_savepath)
-  
-  # Layers correspondance (hints)
-  #student_layers = [2,5,7]
-  #teacher_layers = [0,2,4]
-  
-  student_layers = [2,4] 
-  teacher_layers = [0,2]
-  #[[0,2],[2,4]]
-
   # Load student
   with open(student_yaml, "r") as sty:
     student = yaml_parse.load(sty)
     
   # Load teacher network
-  fo = open(teacher_pkl, 'r')
-  teacher = pkl.load(fo)
-  fo.close()
+  teacher = student.algorithm.cost.teacher
+  
+  # Load hints
+  student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
+  teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
   
   assert len(student_layers) == len(teacher_layers)
   n_hints = len(student_layers)
@@ -129,11 +117,6 @@ def main(argv):
     # Train student subnetwork
     student_hint.main_loop()
       
-    # Save complete student subnetwork
-    hint_output = open(student_savepath + 'student_subnetwork' + str(i) + '.pkl', 'wb')
-    pkl.dump(student_hint, hint_output)
-    hint_output.close()
-      
     # Save pretrained student subnetworks together (without regression to teacher layer)
     student.model.layers[0:top_layer] = student_hint.model.layers[0:-2]
 
@@ -143,11 +126,6 @@ def main(argv):
   softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1)  
   softmax_hint.main_loop()
   student.model.layers[-1] = softmax_hint.model.layers[-1]
-     
-  # Save pretrained student network to pkl file
-  student_final = open(student_savepath + 'student_complete.pkl', 'wb')
-  pkl.dump(student,student_final)
-  student_final.close()
       
   # TODO: Finetune student network and save it
     
