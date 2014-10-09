@@ -14,6 +14,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     supervised = True
     
     def __init__(self, teacher_path, relaxation_term=1, weight=1, hints=None):
+
       self.relaxation_term = relaxation_term
       
       # Load teacher network and change parameters according to relaxation_term.
@@ -116,7 +117,9 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
             Maps channels names to expressions for channel values.
         """
                
-	rval = super(TeacherRegressionCost, self).get_monitoring_channels(model,data)
+	#rval = super(TeacherRegressionCost, self).get_monitoring_channels(model,data)
+	
+	rval = OrderedDict()
 	                
         value_cost_wrt_target = self.cost_wrt_target(model,data)
         if value_cost_wrt_target is not None:

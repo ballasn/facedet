@@ -127,7 +127,14 @@ def main(argv):
   softmax_hint.main_loop()
   student.model.layers[-1] = softmax_hint.model.layers[-1]
       
-  # TODO: Finetune student network and save it
+  # Remove previous monitoring to be able to finetune the student network
+  assert hasattr(student.model,'monitor')
+  old_monitor = student.model.monitor
+  setattr(student.model, 'lastlayer_monitor', old_monitor)
+  del student.model.monitor
+  
+  #Finetune student network
+  student.main_loop()
     
   
 if __name__ == "__main__":

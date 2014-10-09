@@ -15,7 +15,6 @@ from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
 from copy import deepcopy
 
-
 def generateConvRegressor(teacher_hintlayer, student_layer):
   
   layer_name = 'hint_regressor'
@@ -26,9 +25,18 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
   irng = 0.05
   mkn = 0.9
   tb = 1  
-    
+      
   if isinstance(teacher_hintlayer, MaxoutConvC01B):
-    raise NotImplementedError("Maxout not implemented")
+    hint_reg_layer = MaxoutConvC01B(num_channels=out_ch, 
+				    num_pieces=teacher_hintlayer.num_pieces, 
+				    kernel_shape=ks, 
+				    pool_shape=[1,1], 
+				    pool_stride=[1,1], 
+				    layer_name=layer_name, 
+				    irange=irng,  
+				    max_kernel_norm=mkn, 
+				    tied_b=teacher_hintlayer.tied_b)
+
   elif isinstance(teacher_hintlayer, ConvRectifiedLinear):
     nonlin = RectifierConvNonlinearity()
     hint_reg_layer = ConvElemwise(output_channels = out_ch,
@@ -41,6 +49,10 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
 				  
   elif isinstance(teacher_hintlayer, ConvElemwise):
     nonlin = teacher_hintlayer.nonlinearity
+    
+    if isinstance(nonlin,TanhConvNonlinearity):
+      nonlin = SigmoidConvNonlinearity()
+      
     hint_reg_layer = ConvElemwise(output_channels = out_ch,
 				  kernel_shape = ks,
 				  layer_name = layer_name,
@@ -88,7 +100,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
       
     teacher_output_space = teacher.layers[hintlayer].get_output_space()
     student_output_space = student.model.layers[fromto_student[1]].get_output_space()
-    
+        
     # Add regressor to the student subnetwork if needed
     if teacher_output_space.shape < student_output_space.shape or (teacher_output_space.num_channels > student_output_space.num_channels and teacher_output_space.shape == student_output_space.shape):
       # Add convolutional regressor
@@ -147,7 +159,7 @@ def main(argv):
   if student.algorithm.cost.hints is not None:
     student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
     teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
- 
+     
     assert len(student_layers) == len(teacher_layers)
     n_hints = len(student_layers)
     assert max(student_layers) <= len(student.model.layers)-2
@@ -185,8 +197,16 @@ def main(argv):
   softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1) 
   softmax_hint.main_loop()
   student.model.layers[-1] = softmax_hint.model.layers[-1]
+  
+  print 'Finetuning student network'
       
-  # TODO: Finetune student network and save it
+  # Remove previous monitoring to be able to finetune the student network
+  assert hasattr(student.model,'monitor')
+  old_monitor = student.model.monitor
+  setattr(student.model, 'lastlayer_monitor', old_monitor)
+  del student.model.monitor
+  
+  #Finetune student network
   student.main_loop()
   
 if __name__ == "__main__":

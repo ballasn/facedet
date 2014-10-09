@@ -82,4 +82,6 @@ if __name__ == '__main__':
   # Print results
   print 'Teacher time is %fs' % (elapsed_time_teacher)
   print 'Student time is %fs' % (elapsed_time_student)
+  print 'Teacher error is %fs' % (error_teacher)
+  print 'Student error is %fs' % (error_student)
   print 'Error increment is %f and time increment is %fs' % (error_inc, time_inc)

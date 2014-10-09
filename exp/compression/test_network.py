@@ -33,6 +33,7 @@ test.X = test.X.astype('float32')
 
 assert test.X.shape[0] % batch_size == 0
 
+
 def compute_test_accuracy(model):
     test_acc = []
     
