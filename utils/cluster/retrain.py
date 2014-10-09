@@ -1,4 +1,5 @@
 import sys
+import os.path
 import cPickle as pkl
 from pylearn2.config import yaml_parse
 from pylearn2.monitor import push_monitor
@@ -19,6 +20,10 @@ def train_again(yaml):
 
     # Load the trained model
     model_file = context.save_path
+
+    if not os.path.isfile(model_file):
+        model_file = context.extensions[-1].save_path
+
     with open(model_file, 'r') as m_f:
         trained_model = pkl.load(m_f)
 
