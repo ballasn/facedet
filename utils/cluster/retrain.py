@@ -1,8 +1,8 @@
 import sys
 import os.path
 import cPickle as pkl
-from pylearn2.config import yaml_parse
 from pylearn2.monitor import push_monitor
+from pylearn2.utils import serial
 
 
 def train_again(yaml):
@@ -14,8 +14,8 @@ def train_again(yaml):
     yaml : string, filename
            YAML file defining the exp to be continued
     '''
-    with open(yaml, "r") as m_y:
-        context = yaml_parse.load(m_y)
+
+    context = serial.load_train_file(yaml)
     print "\tLoaded YAML"
 
     # Load the trained model
