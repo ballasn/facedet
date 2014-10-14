@@ -18,7 +18,8 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
                  fold_dir2='/u/chassang/Projects/FaceDetection/FDDB_files_lists',
                  fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/",
                  img_dir="/data/lisa/data/faces/FDDB/",
-                 mode='rect'):
+                 mode='rect',
+                 max_det=30):
     """
     Apply the cascade of fprops to the folds
     Write the results at <out_dir>/fold-<nb_fold>-out.txt
@@ -69,12 +70,12 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
             # We remove /data/lisa/data/faces/FDDB and the extension
             n = f.split("/")[6:]
             n = "/".join(n)[:-4]
+            m = min(max_det, len(rois_tot[i]))
 
             output.write(n+"\n")  # Filename for FDDB
-            output.write(str(len(rois_tot[i]))+"\n")  # Nb of faces
-
+            output.write(str(m)+'\n') #len(rois_tot[i]))+"\n")  # Nb of faces
             # Faces for the image
-            for roi, score in zip(rois_tot[i], scores_tot[i]):
+            for roi, score in zip(rois_tot[i][:m], scores_tot[i][:m]):
 
                 # <x0, y0, w, h, score>
                 s = str(roi[0, 1]) + ' ' + str(roi[0, 0])+' '
@@ -104,13 +105,13 @@ if __name__ == '__main__':
 
 
     nb_fold = 1
-    out_dir = './results/output/'
+    out_dir = '../FDDB/output/'
 
     with open(model_file16, 'r') as m_f:
         model16 = pkl.load(m_f)
 
-    with open(model_file48, 'r') as m_f:
-        model48 = pkl.load(m_f)
+    #with open(model_file48, 'r') as m_f:
+    #    model48 = pkl.load(m_f)
 
     #with open(model_file96, 'r') as m_f:
     #    model96 = pkl.load(m_f)
@@ -118,22 +119,22 @@ if __name__ == '__main__':
     # Compile functions
     x = T.tensor4('x')
     predict16 = function([x], model16.fprop(x))
-    predict48 = function([x], model48.fprop(x))
+    #predict48 = function([x], model48.fprop(x))
     #predict96 = function([x], model96.fprop(x))
 
-    models = [model16, model48]
-    fprops = [predict16, predict48]
-    sizes = [16, 48]
-    strides = [2, 2]
+    models = [model16]#, model48]
+    fprops = [predict16]#, predict48]
+    sizes = [16]#, 48]
+    strides = [2]#, 2]
     base_size = max(sizes)
-    probs = [0.5, 0.9]
-    overlap_ratio = [0.8, 0.3]
+    probs = [0.5]#, 0.9]
+    overlap_ratio = [0.3]#, 0.3]
 
 
     ratio = sqrt(2)
-    global_scales = [(1.0/ratio)**e for e in range(5, 11)]
+    global_scales = [(1.0/ratio)**e for e in range(2,11)]
     global_scales2 = [(1.0/ratio)**e for e in range(1, 11)]
-    local_scales = [global_scales, global_scales2]
+    local_scales = [global_scales]#, global_scales2]
     print 'local_scales', local_scales
 
 
