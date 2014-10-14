@@ -2,6 +2,7 @@
 from os.path import join
 import numpy as np
 import sys
+import cv2
 
 base_dir = '/data/lisa/data/faces/FDDB/'
 
@@ -15,18 +16,25 @@ def convert_fddb_annotation(annot):
         line = f.readline()
         while line != '':
             image_file = join(base_dir, line.strip() + ".jpg")
-            print image_file
-
             nb_faces = int(f.readline().strip())
             #print image_file, nb_faces
 
+            img = cv2.imread(image_file)
+
             for i in xrange(0, nb_faces):
                 line = f.readline().strip()
-                print line
                 coords = line.split(' ')
                 [ra, rb, theta, cx, cy] = [float(r) for r in coords[:-2]]
                 theta = np.degrees(theta)
-                print image_file, cx-ra, cy-rb, 2*ra, 2*rb
+                print image_file, cy-ra, cx-rb, cy+ra, cx+rb
+                cv2.rectangle(img,
+                              (int(cx-rb), int(cy-ra)),
+                              (int(cx+rb), int(cy+ra)),
+                              (0, 255, 0), 2)
+
+            #cv2.imshow("img", img)
+            #cv2.waitKey(60)
+            #cv2.destroyAllWindows()
 
             line = f.readline()
             # # Loop over annotations
