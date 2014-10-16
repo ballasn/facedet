@@ -95,7 +95,13 @@ class faceDataset(dataset.Dataset):
         print "Image shape :", self.img_shape
         print "Positives shape", self.positives_shape
         print "Negatives shape", self.negatives_shape
-
+        # Define the permutation to be applied to the mini batch
+        #   to get the good format
+        data_axes = ('b', 0, 1, 'c')  # The axes of the data in hdf5
+        new_axes = []
+        for e in self.axes:
+            new_axes.append(data_axes.index(e))
+        self.permutation = tuple(new_axes)  # Permutation to be applied
 
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
@@ -141,10 +147,12 @@ class faceDataset(dataset.Dataset):
 
         # Transforming into B01C
         x = np.reshape(x, [minibatch_size] + self.img_shape)
+
         # C01B conversion
         #x = np.swapaxes(x, 0, 3)
         # BC01 conversion
-        x = np.transpose(x, (0, 3, 1, 2))
+
+        x = np.transpose(x, self.permutation)
 
 
         cur_positives += nb_pos
@@ -165,6 +173,7 @@ class faceDataset(dataset.Dataset):
         x = np.swapaxes(x, 3, 0)
         y[0:minibatch_size, 1] = 1
         assert y[0,0] ==0
+        x = np.transpose(x, self.permutation)
         return (x, y)
 
 
