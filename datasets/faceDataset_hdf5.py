@@ -1,6 +1,5 @@
 import os
 import math
-import cv2
 import warnings
 import numpy as np
 import random
@@ -140,8 +139,13 @@ class faceDataset(dataset.Dataset):
                 + nb_neg, :]
         y[nb_pos: nb_pos + nb_neg, 1] = 1
 
+        # Transforming into B01C
         x = np.reshape(x, [minibatch_size] + self.img_shape)
-        x = np.swapaxes(x, 0, 3)
+        # C01B conversion
+        #x = np.swapaxes(x, 0, 3)
+        # BC01 conversion
+        x = np.transpose(x, (0, 3, 1, 2))
+
 
         cur_positives += nb_pos
         cur_negatives += nb_neg
