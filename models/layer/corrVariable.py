@@ -288,8 +288,8 @@ class CorrMMElemwise(Layer):
                             (self.input_space.shape[1] + self.kernel_shape[1])
                             / self.kernel_stride[1] - 1]
 
-        print "In:", self.input_space.shape, self.kernel_shape, self.kernel_stride, self.pad
-        print "Out:", output_shape
+        print "In:", self.layer_name, self.input_space.shape, self.kernel_shape, self.kernel_stride, self.pad
+        print "Out:", self.layer_name, output_shape
 
 
         self.detector_space = Conv2DSpace(shape=output_shape,
@@ -511,7 +511,7 @@ class CorrMMElemwise(Layer):
 
             if self.pool_type == 'max':
                 p = downsample.max_pool_2d(d, self.pool_shape,
-                                                ignore_border=True)
+                                                ignore_border=False)
 
                 #p = max_pool(bc01=d, pool_shape=self.pool_shape,
                 #        pool_stride=self.pool_stride,
