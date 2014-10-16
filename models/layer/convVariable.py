@@ -270,7 +270,7 @@ class ConvElemwise(Layer):
                                             dummy_detector.shape[3]],
                                             num_channels=num_channels,
                                             axes=('b', 'c', 0, 1))
-        print self.output_space.shape, self.output_space.num_channels 
+        print self.layer_name, self.output_space.shape, self.output_space.num_channels 
 
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
@@ -489,7 +489,7 @@ class ConvElemwise(Layer):
             self.tied_b = False
 
         print self.layer_name
-        assert self.tied_b
+        #assert self.tied_b
         if self.tied_b:
             b = self.b.dimshuffle('x', 0, 'x', 'x')
         else:
@@ -518,7 +518,7 @@ class ConvElemwise(Layer):
 
             if self.pool_type == 'max':
                 p = downsample.max_pool_2d(d, self.pool_shape,
-                                                ignore_border=True)
+                                                ignore_border=False)
 
                 #p = max_pool(bc01=d, pool_shape=self.pool_shape,
                 #        pool_stride=self.pool_stride,
