@@ -32,7 +32,7 @@ class faceDataset(dataset.Dataset):
                  which_set,
                  ratio=0.8,
                  batch_size=128,
-                 axes=('c', 0, 1, 'b'),
+                 axes=('b', 'c', 0, 1),
                  nb_examples=[None, None]):
         """
         Instantiates a handle to the face dataset
