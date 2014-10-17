@@ -79,6 +79,7 @@ class SigmoidExtended(Layer):
 
         self.input_space.validate(state_below)
         p = T.nnet.sigmoid(state_below.dimshuffle(2, 3, 0, 1))
+	p = p.dimshuffle(2,3,0,1)
         return p
 
     @wraps(Layer.cost)

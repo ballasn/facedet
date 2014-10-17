@@ -10,6 +10,7 @@ import cPickle as pkl
 from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
 from models.layer.convVariable import ConvElemwise
 from models.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.SigmoidBC01Extended import SigmoidExtended
 from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectifiedLinear, RectifierConvNonlinearity, SigmoidConvNonlinearity, TanhConvNonlinearity
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
@@ -25,7 +26,7 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
   irng = 0.05
   mkn = 0.9
   tb = 1  
-      
+        
   if isinstance(teacher_hintlayer, MaxoutConvC01B):
     hint_reg_layer = MaxoutConvC01B(num_channels=out_ch, 
 				    num_pieces=teacher_hintlayer.num_pieces, 
@@ -70,7 +71,7 @@ def generateNonConvRegressor(teacher_hintlayer, student_output_space):
   layer_name = 'hint_regressor'
     
   if isinstance(teacher_hintlayer, MaxoutConvC01B):
-    hint_reg_layer = Maxout(layer_name, dim, 2, irange= .005, max_col_norm= 1.9365)
+    hint_reg_layer = Maxout(layer_name, dim, teacher_hintlayer.num_pieces, irange= .005, max_col_norm= 0.9)
   elif isinstance(teacher_hintlayer, ConvRectifiedLinear):
     hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
   elif isinstance(teacher_hintlayer, ConvElemwise):
@@ -88,8 +89,8 @@ def generateNonConvRegressor(teacher_hintlayer, student_output_space):
 def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
       
   # Check if we are in the softmax layers
-  if isinstance(teacher.layers[hintlayer], Softmax) or isinstance(teacher.layers[hintlayer], SoftmaxExtended):
-    assert (isinstance(student.model.layers[fromto_student[1]], Softmax) or isinstance(teacher.layers[hintlayer], SoftmaxExtended))
+  if isinstance(teacher.layers[hintlayer], Softmax) or isinstance(teacher.layers[hintlayer], SoftmaxExtended) or isinstance(teacher.layers[hintlayer], SigmoidExtended):
+    assert (isinstance(student.model.layers[fromto_student[1]], Softmax) or isinstance(student.model.layers[fromto_student[1]], SoftmaxExtended) or isinstance(student.model.layers[fromto_student[1]], SigmoidExtended))
     assert teacher.layers[hintlayer].get_output_space().dim == student.model.layers[fromto_student[1]].get_output_space().dim
     
   else:
@@ -154,7 +155,7 @@ def main(argv):
     
   # Load teacher network
   teacher = student.algorithm.cost.teacher
-  
+    
   # Load hints
   if student.algorithm.cost.hints is not None:
     student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
@@ -196,7 +197,7 @@ def main(argv):
   # Train softmax layer and stack it to the pretrained student network
   softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1) 
   softmax_hint.main_loop()
-  student.model.layers[-1] = softmax_hint.model.layers[-1]
+  student.model.layers = softmax_hint.model.layers
   
   print 'Finetuning student network'
       
@@ -205,6 +206,9 @@ def main(argv):
   old_monitor = student.model.monitor
   setattr(student.model, 'lastlayer_monitor', old_monitor)
   del student.model.monitor
+  
+  student.save_path = student.extensions[0].save_path[0:-4] + "_complete.pkl"
+  student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
   
   #Finetune student network
   student.main_loop()

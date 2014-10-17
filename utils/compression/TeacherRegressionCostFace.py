@@ -60,6 +60,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
                                                 
         # Compute teacher relaxed output
 	Pt_y_given_x_relaxed = self.teacher.fprop(x)
+	#Pt_y_given_x_relaxed.dimshuffle(0,3,1,2)
         Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[axes.index('b')],
 			       Pt_y_given_x_relaxed.shape[axes.index('c')]*
 			       Pt_y_given_x_relaxed.shape[axes.index(0)]*

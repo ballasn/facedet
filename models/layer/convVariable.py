@@ -270,7 +270,11 @@ class ConvElemwise(Layer):
                                             dummy_detector.shape[3]],
                                             num_channels=num_channels,
                                             axes=('b', 'c', 0, 1))
-        print self.layer_name, self.output_space.shape, self.output_space.num_channels 
+
+
+	print "Input:", self.layer_name, self.input_space.shape, self.input_space.num_channels 
+	print "Detector:", self.layer_name, self.detector_space.shape, self.detector_space.num_channels 
+        print "Output:", self.layer_name, self.output_space.shape, self.output_space.num_channels 
 
     @wraps(Layer.set_input_space)
     def set_input_space(self, space):
@@ -481,9 +485,8 @@ class ConvElemwise(Layer):
 
     @wraps(Layer.fprop)
     def fprop(self, state_below):
-
         #self.input_space.validate(state_below)
-
+        
         z = self.transformer.lmul(state_below)
         if not hasattr(self, 'tied_b'):
             self.tied_b = False
@@ -501,6 +504,8 @@ class ConvElemwise(Layer):
         if self.layer_name is not None:
             d.name = self.layer_name + '_z'
             self.detector_space.validate(d)
+            
+    
 
         if self.pool_type is not None:
             # Format the input to be supported by max pooling

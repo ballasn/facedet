@@ -32,7 +32,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
       dim = teacher.layers[hintlayer].output_space.get_total_dimension()
       layer_name = 'hint_regressor'
       if isinstance(teacher.layers[hintlayer], MaxoutConvC01B):
-	hint_reg_layer = Maxout(layer_name, dim, 2, irange= .005, max_col_norm= 1.9365)
+	hint_reg_layer = Maxout(layer_name, dim, teacher_hintlayer.num_pieces, irange= .005, max_col_norm= 0.9)
       elif isinstance(teacher.layers[hintlayer], ConvRectifiedLinear):
 	hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
       elif isinstance(teacher.layers[hintlayer], ConvElemwise):
