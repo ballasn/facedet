@@ -135,8 +135,8 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer):
   student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
     
   # Freeze parameters of the layers trained in the last subnetworks
-  for i in range(0,fromto_student[0]-1):
-    student.model.freeze(student.model.layers[i].get_params())
+  #for i in range(0,fromto_student[0]-1):
+  #  student.model.freeze(student.model.layers[i].get_params())
 
   return student
     
@@ -199,19 +199,19 @@ def main(argv):
   softmax_hint.main_loop()
   student.model.layers = softmax_hint.model.layers
   
-  print 'Finetuning student network'
+  #print 'Finetuning student network'
       
   # Remove previous monitoring to be able to finetune the student network
-  assert hasattr(student.model,'monitor')
-  old_monitor = student.model.monitor
-  setattr(student.model, 'lastlayer_monitor', old_monitor)
-  del student.model.monitor
+  #assert hasattr(student.model,'monitor')
+  #old_monitor = student.model.monitor
+  #setattr(student.model, 'lastlayer_monitor', old_monitor)
+  #del student.model.monitor
   
-  student.save_path = student.extensions[0].save_path[0:-4] + "_complete.pkl"
-  student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
+  #student.save_path = student.extensions[0].save_path[0:-4] + "_complete.pkl"
+  #student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
   
   #Finetune student network
-  student.main_loop()
+  #student.main_loop()
   
 if __name__ == "__main__":
   main(sys.argv[1:])
