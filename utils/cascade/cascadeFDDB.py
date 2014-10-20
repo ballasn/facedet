@@ -73,7 +73,7 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
             m = min(max_det, len(rois_tot[i]))
 
             output.write(n+"\n")  # Filename for FDDB
-            output.write(str(m)+'\n') #len(rois_tot[i]))+"\n")  # Nb of faces
+            output.write(str(m)+'\n')  # len(rois_tot[i]))+"\n")  # Nb of faces
             # Faces for the image
             for roi, score in zip(rois_tot[i][:m], scores_tot[i][:m]):
 
@@ -122,33 +122,36 @@ if __name__ == '__main__':
     #predict48 = function([x], model48.fprop(x))
     #predict96 = function([x], model96.fprop(x))
 
-    models = [model16]#, model48]
-    fprops = [predict16]#, predict48]
-    sizes = [16]#, 48]
-    strides = [2]#, 2]
+    models = [model16]  # , model48]
+    fprops = [predict16]  # , predict48]
+    sizes = [16]  # , 48]
+    strides = [2]  # , 2]
     base_size = max(sizes)
-    probs = [0.5]#, 0.9]
-    overlap_ratio = [0.3]#, 0.3]
-
+    probs = [0.5]  # , 0.9]
+    overlap_ratio = [0.3]  # , 0.3]
 
     ratio = sqrt(2)
-    global_scales = [(1.0/ratio)**e for e in range(2,11)]
+    global_scales = [(1.0/ratio)**e for e in range(2, 11)]
     global_scales2 = [(1.0/ratio)**e for e in range(1, 11)]
-    local_scales = [global_scales]#, global_scales2]
+    local_scales = [global_scales]  # global_scales2]
     print 'local_scales', local_scales
 
+    # Check that the smallest patch is larger than 20 px
+    # patch_size = predict_size / scale
+    print 'Only patches with sizes > 20 pixels should be tested'
+    for i in range(len(local_scales)):
+        local_scales[i] = [e for e in local_scales[i] if sizes[i]/e >= 20]
 
     assert len(models) == len(fprops)
     assert len(models) == len(sizes)
     assert len(models) == len(strides)
     assert len(models) == len(local_scales)
 
-
     t_orig = time()
     for nb in range(1, 11):
         t0 = time()
-        process_fold(models, fprops, local_scales, sizes, strides, probs, overlap_ratio,
-                     nb, out_dir, mode='rect')
+        process_fold(models, fprops, local_scales, sizes, strides, probs,
+                     overlap_ratio, nb, out_dir, mode='rect')
         t = time()
         print ""
         print t-t0, 'seconds for the fold'
