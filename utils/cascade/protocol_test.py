@@ -7,7 +7,7 @@ from utils.cascade.nms import fast_nms, nms_scale, dummy_nms
 from utils.cascade.image_processing import process_image
 from utils.cascade.rois import get_rois, correct_rois, rois_to_slices
 from math import sqrt
-
+import glob
 def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=None):
     """
     Perform the cascade classifier on image
@@ -35,9 +35,9 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
     # Perform first level
     res = process_image(fprops[0], img, scales[0], sizes[0])
 ######################################################
-    #res = fast_nms(res, sizes[0], strides[0], probs[0])
+    #res = fast_nms(res, sizes[0], strides[0], probs[0], overlap_ratio[0])
     res = dummy_nms(res, probs[0])
-    # res = nms_scale(res, sizes[0], strides[0])
+    #res = nms_scale(res, sizes[0], strides[0])
 ######################################################
     rois, scores = get_rois(res, models[0], enlarge_factor=0, overlap_ratio=overlap_ratio[0])
     rois = correct_rois(rois, img.shape)
@@ -47,24 +47,33 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
 
         next_rois = []
         next_scores = []
-        # For each RoI of the past level
 
+        # For each RoI of the past level
         for j, sl in enumerate(slices):
             crop_ = img[sl]
-            res_ = process_image(fprops[i], crop_, scales[i], sizes[i])
+            # Change the actual scales used
+            # if crop is smaller than predict size
+            if crop_.shape[0] < sizes[i]:
+                actual_scales = [float(crop_.shape[0])/float(sizes[i])]
+            else:
+                actual_scales = scales[i]
+            res_ = process_image(fprops[i], crop_, actual_scales, sizes[i])
 ######################################################
-            #res_ = fast_nms(res_, sizes[i], strides[i], probs[i])
-            res_ = dummy_nms(res_, probs[i])
+            # Threshlod on the cumylated score like the Soft Cascade
+            #res_ = fast_nms(res_, sizes[i], strides[i], probs[i]-scores[j)
+            res_ = dummy_nms(res_, probs[i]-scores[j])
 ######################################################
 
-            rois_, scores_ = get_rois(res_, models[i],
+            local_rois, local_scores = get_rois(res_, models[i],
                                       enlarge_factor=0.3, overlap_ratio=overlap_ratio[i])
-            rois_ = correct_rois(rois_, crop_.shape)
+            local_rois = correct_rois(local_rois, crop_.shape)
 
             # Get the absolute coords of the new RoIs
-            for r, s in zip(rois_, scores_):
+            # The score is now the sum of
+            # the local score and the score of the RoIs
+            for r, s in zip(local_rois, local_scores):
                 next_rois.append(r + rois[j][0, :])
-                next_scores.append(s)
+                next_scores.append(s + scores[j])
         rois = next_rois
         scores = next_scores
         # Get the slices from the absolute values
@@ -74,19 +83,16 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
 
 if __name__ == "__main__":
     # Define image and model
-    img_file = "/data/lisa/data/faces/FDDB/2002/08/11/big/img_276.jpg"
     img_file =\
-    "/u/chassang/Pictures/face_det/9_CMID_MTL-WKS-AC413_FID_2_ID_4265_002819_er.bmp.jpg"
-    img_file =\
-    "/u/chassang/Pictures/face_det/9_CMID_MTL-WKS-AE123_FID_2_ID_3510_005473_er.bmp"
-    model_file1 = '/data/lisatmp3/chassang/facedet/models/16/largebis16.pkl'
+    '/data/lisa/data/faces/FDDB/2002/07/24/big/img_402.jpg'
+    #l = glob.glob('/u/chassang/Pictures/face_det/*.bmp')
+    l = [img_file]
+    model_file1 =\
+    '/data/lisatmp3/chassang/facedet/models/16/dsn16_700k_best.pkl'
     # model_file2 = '../../exp/convtest/models/conv48_best.pkl'
     # model_file3 = '../../exp/convtest/convTest96_best.pkl'
 
-    img = cv2.imread(img_file)
-    print img_file
-    print model_file1
-    print img.shape, img.dtype
+    imgs = [cv2.imread(img_file) for img_file in l]
 
     # Define predictor
     with open(model_file1, 'r') as m_f:
@@ -103,30 +109,36 @@ if __name__ == "__main__":
     strides = [2]
     scales = [0.05 * sqrt(2)**e for e in range(5)  ]
     local_scales = [scales]
-    probs = [20.0]
+    probs = [0.7]
+    overlap_ratio = [0.3]
     print 'local_scales', local_scales
 
-    # Apply cascade
-    print 'img.shape', img.shape
-    rois, scores = cascade(img, models, fprops, local_scales, sizes, strides,
-                           probs)
-    #print rois
+    for j,img in enumerate(imgs):
+        rois, scores = cascade(img, models, fprops, local_scales, sizes,
+                strides,overlap_ratio, probs)
+        print 'ok with image', j
+        for i in xrange(len(rois)):
+            cv2.rectangle(img, (int(rois[i][0, 1]), int(rois[i][0, 0])),
+                          (int(rois[i][1, 1]), int(rois[i][1, 0])),
+                            (0, 255, 0), 2)
+            #cv2.imwrite('./images/processed_'+str(j)+'.bmp',img)
+        cv2.imshow('r3', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        #print rois
     #print scores
-
+    '''
     # Flip the image vertically
     img2 = np.copy(img[::-1, :])
     rois2, scores2 = cascade(img2, models, fprops, local_scales, sizes,
-                             strides, probs)
+                             strides, overlap_ratio, probs)
 
     # Flip the image horizontally
     img3 = np.copy(img[:, ::-1, :])
     rois3, scores3 = cascade(img3, models, fprops, local_scales, sizes,
-                             strides, probs)
+                             strides, overlap_ratio, probs)
     # Display results as squares on the image
 
-    for i in xrange(len(rois)):
-        cv2.rectangle(img, (int(rois[i][0, 1]), int(rois[i][0, 0])),
-                      (int(rois[i][1, 1]), int(rois[i][1, 0])),
                       (0, 255, 0), 2)
     for i in xrange(len(rois)):
         cv2.putText(img, str(scores[i]),
@@ -154,7 +166,4 @@ if __name__ == "__main__":
                     (int(rois3[i][0, 1]) + 10, int(rois3[i][0, 0]) + 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                     (255, 0, 0))
-
-    cv2.imshow('r3', img3)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    '''
