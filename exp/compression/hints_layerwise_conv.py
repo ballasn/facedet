@@ -15,6 +15,7 @@ from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectified
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
 from copy import deepcopy
+from pylearn2.costs.cost import MethodCost
 
 def generateConvRegressor(teacher_hintlayer, student_layer):
   
@@ -209,7 +210,10 @@ def main(argv):
   #setattr(student.model, 'lastlayer_monitor', old_monitor)
   #del student.model.monitor
   
-  #student.save_path = student.extensions[0].save_path[0:-4] + "_complete.pkl"
+  # Change cost
+  #student.algorithm.cost = MethodCost(method='cost_from_X')
+
+  #student.save_path = student.extensions[0].save_path[0:-4] + "_finetuned.pkl"
   #student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
   
   #Finetune student network

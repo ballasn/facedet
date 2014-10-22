@@ -69,11 +69,13 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
 	if isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
 	  hint = (hint + 1) / float(2)
 	  cost = -T.log(student_output) * hint
+	  cost = T.sum(cost,axis=1)
 	else:
 	  # Compute cost
 	  cost = 0.5*(hint - student_output)**2
+	  cost = T.mean(cost) #check mean or sum
         
-        return T.mean(cost)
+        return cost
         
     def get_monitoring_channels(self, model, data, **kwargs):
         """
