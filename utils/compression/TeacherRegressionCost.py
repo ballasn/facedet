@@ -63,7 +63,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 
 	# Compute cost
         rval = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
-        rval = T.mean(rval, axis=1)
+        rval = T.sum(rval, axis=1)
         
         return rval  
         

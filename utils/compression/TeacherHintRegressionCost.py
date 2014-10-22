@@ -56,24 +56,22 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
         hint = x
         for l in range(self.hintlayer+1):
 	  hint = self.teacher.layers[l].fprop(hint)
-	  
-	# Transform output if necessary (only in tanh case)
-	if isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
-	  hint = (hint + 1) / float(2)
         
         # Change teacher format if non-convolutional regressor
 	if hasattr(model.layers[-1].get_output_space(),'dim'):
 	  hint = hint.reshape(shape=(hint.shape[axes.index('b')],
 				      hint.shape[axes.index('c')]*
 				      hint.shape[axes.index(0)]*
-				      hint.shape[axes.index(1)]),ndim=2)	      
-	  # Compute cost
-	  cost = 0.5*(hint - student_output)**2
-	  #cost = T.sum(cost, axis=1) 
+				      hint.shape[axes.index(1)]),ndim=2)
+				      
+				      
+	# Transform output if necessary (only in tanh case to use ce error instead of mse)
+	if isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
+	  hint = (hint + 1) / float(2)
+	  cost = -T.log(student_output) * hint
 	else:
 	  # Compute cost
 	  cost = 0.5*(hint - student_output)**2
-	  #cost = T.sum(cost, axis=[1,2,3])
         
         return T.mean(cost)
         

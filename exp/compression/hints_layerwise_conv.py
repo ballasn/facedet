@@ -51,8 +51,8 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
   elif isinstance(teacher_hintlayer, ConvElemwise):
     nonlin = teacher_hintlayer.nonlinearity
     
-    if isinstance(nonlin,TanhConvNonlinearity):
-      nonlin = SigmoidConvNonlinearity()
+    #if isinstance(nonlin,TanhConvNonlinearity):
+    #  nonlin = SigmoidConvNonlinearity()
       
     hint_reg_layer = ConvElemwise(output_channels = out_ch,
 				  kernel_shape = ks,
@@ -77,8 +77,10 @@ def generateNonConvRegressor(teacher_hintlayer, student_output_space):
   elif isinstance(teacher_hintlayer, ConvElemwise):
     if isinstance(teacher_hintlayer.nonlinearity,RectifierConvNonlinearity):
       hint_reg_layer = RectifiedLinear(dim=dim, layer_name=layer_name, irange=0.05)
-    elif isinstance(teacher_hintlayer.nonlinearity,SigmoidConvNonlinearity) or isinstance(teacher_hintlayer.nonlinearity,TanhConvNonlinearity):
+    elif isinstance(teacher_hintlayer.nonlinearity,SigmoidConvNonlinearity):
       hint_reg_layer = Sigmoid(dim=dim, layer_name=layer_name, irange=0.05)
+    elif isinstance(teacher_hintlayer.nonlinearity,TanhConvNonlinearity):
+      hint_reg_layer = Tanh(dim=dim, layer_name=layer_name, irange=0.05)
     else:
       raise AssertionError("Unknown layer type")
   else:

@@ -2,6 +2,8 @@ import theano.tensor as T
 import cPickle as pkl
 from theano.compat.python2x import OrderedDict
 from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
+from models.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.SigmoidBC01Extended import SigmoidExtended
 
 class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     """
@@ -60,11 +62,12 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
                                                 
         # Compute teacher relaxed output
 	Pt_y_given_x_relaxed = self.teacher.fprop(x)
-	#Pt_y_given_x_relaxed.dimshuffle(0,3,1,2)
-        Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[axes.index('b')],
-			       Pt_y_given_x_relaxed.shape[axes.index('c')]*
-			       Pt_y_given_x_relaxed.shape[axes.index(0)]*
-			       Pt_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
+
+	if isinstance(self.teacher.layers[-1], SoftmaxExtended) or isinstance(self.teacher.layers[-1], SigmoidExtended):
+	  Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[axes.index('b')],
+				Pt_y_given_x_relaxed.shape[axes.index('c')]*
+				Pt_y_given_x_relaxed.shape[axes.index(0)]*
+				Pt_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
 	
 
 	# Relax student softmax layer using relaxation_term.
@@ -75,10 +78,11 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         # Compute student relaxed output
         Ps_y_given_x_relaxed = model.fprop(x)
         
-        Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[axes.index('b')],
-			       Ps_y_given_x_relaxed.shape[axes.index('c')]*
-			       Ps_y_given_x_relaxed.shape[axes.index(0)]*
-			       Ps_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
+        if isinstance(model.layers[-1], SoftmaxExtended) or isinstance(model.layers[-1], SigmoidExtended):
+	  Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[axes.index('b')],
+				Ps_y_given_x_relaxed.shape[axes.index('c')]*
+				Ps_y_given_x_relaxed.shape[axes.index(0)]*
+				Ps_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
                 
 	# Compute cost
         rval = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
