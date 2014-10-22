@@ -44,9 +44,9 @@ class faceDataset(dataset.Dataset):
         negative_samples : path to the npy file of - samples
         The current ratio is 0.8 => train 80%, valid 20%
         """
-        # Load data
-        self.positives = np.load(positive_samples)
-        self.negatives = np.load(negative_samples)
+        # Make pointer to data we will slice directly from disk
+        self.positives = np.load(positive_samples, mmap_mode='r')
+        self.negatives = np.load(negative_samples, mmap_mode='r')
 
         if which_set == 'train':
             # Positives
@@ -55,7 +55,7 @@ class faceDataset(dataset.Dataset):
             else:
                 nb_train = int(np.ceil(ratio * self.positives.shape[0]))
                 nb_train -= nb_train % 128
-            self.positives = self.positives[0:nb_train, :]
+            self.positives = np.array(self.positives[0:nb_train, :])
             print "Positives train :", self.positives.shape
 
             # Negatives
@@ -64,7 +64,7 @@ class faceDataset(dataset.Dataset):
             else:
                 nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
                 nb_train -= nb_train % 128
-            self.negatives = self.negatives[0:nb_train, :]
+            self.negatives = np.array(self.negatives[0:nb_train, :])
             # Resizing if needed
             if resize_neg and self.negatives.shape[0] > self.positives.shape[0]:
                 print "Resizing the negatives"
@@ -78,13 +78,13 @@ class faceDataset(dataset.Dataset):
                 nb_train = nb_examples[0]
             else:
                 nb_train = int(np.ceil((1.0 - ratio) * self.positives.shape[0]))
-            self.positives = self.positives[-nb_train:, :]
+            self.positives = np.array(self.positives[-nb_train:, :])
 
             if nb_examples[1] is not None:
                 nb_train = nb_examples[1]
             else:
                 nb_train = int(np.ceil((1.0 - ratio) * self.negatives.shape[0]))
-            self.negatives = self.negatives[-nb_train:, :]
+            self.negatives = np.array(self.negatives[-nb_train:, :])
 
             print "Positives valid :", self.positives.shape
             print "Negatives valid :", self.negatives.shape
