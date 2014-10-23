@@ -5,7 +5,7 @@
 
 EXE=/u/ballasn/project/facedet/facedet/utils/create_dataset/lists_to_npy.py
 DATA=/u/ballasn/project/facedet/facedet/utils/create_dataset/references/FDDB/fold
-OUT=/data/lisatmp3/ballasn/facedet/datasets/FDDB/fold
+OUT=/data/lisatmp3/ballasn/facedet/datasets/FDDB/fold_48_
 
 
 
@@ -25,6 +25,6 @@ for i in `seq 1 10`; do
         #echo $i $j
     done
 
-    python $EXE $tmpfile 16 ${OUT}${i}.npy
+    python $EXE $tmpfile 48 ${OUT}${i}.npy
     rm $tmpfile
 done
