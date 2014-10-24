@@ -4,7 +4,7 @@ from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
 from theano.compat.python2x import OrderedDict
 from models.layer.convVariable import ConvElemwise
 from pylearn2.models.mlp import TanhConvNonlinearity
-
+from pylearn2.models.mlp import ConvElemwise as ConvElemwisePL2
 
 class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
     """
@@ -66,16 +66,16 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
 				      
 				      
 	# Transform output if necessary (only in tanh case to use ce error instead of mse)
-	if isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
+	if (isinstance(self.teacher.layers[self.hintlayer], ConvElemwise) or isinstance(self.teacher.layers[self.hintlayer], ConvElemwisePL2)) and isinstance(self.teacher.layers[self.hintlayer].nonlinearity,TanhConvNonlinearity):
 	  hint = (hint + 1) / float(2)
 	  cost = -T.log(student_output) * hint
 	  cost = T.sum(cost,axis=1)
 	else:
 	  # Compute cost
 	  cost = 0.5*(hint - student_output)**2
-	  cost = T.mean(cost) #check mean or sum
+	  cost = T.sum(cost)
         
-        return cost
+        return T.mean(cost)
         
     def get_monitoring_channels(self, model, data, **kwargs):
         """
