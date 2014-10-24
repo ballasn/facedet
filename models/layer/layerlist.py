@@ -134,9 +134,7 @@ class LayerList(Layer):
 
     @wraps(Layer.cost)
     def cost(self, Y, Y_hat):
-        return sum(layer.cost(Y_elem, Y_hat_elem)
-                   for layer, Y_elem, Y_hat_elem in
-                   safe_zip(self.layers, Y, Y_hat))
+        return self.layers[-1].cost(Y, Y_hat)
 
     @wraps(Layer.set_mlp)
     def set_mlp(self, mlp):
