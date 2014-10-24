@@ -43,10 +43,11 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         # Compute student output
         Ps_y_given_x = model.fprop(x)
         
-        Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[axes.index('b')],
-                       Ps_y_given_x.shape[axes.index('c')]*
-                       Ps_y_given_x.shape[axes.index(0)]*
-                       Ps_y_given_x.shape[axes.index(1)]),ndim=2)
+        if isinstance(model.layers[-1], SoftmaxExtended) or isinstance(model.layers[-1], SigmoidExtended):
+	  Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[axes.index('b')],
+			Ps_y_given_x.shape[axes.index('c')]*
+			Ps_y_given_x.shape[axes.index(0)]*
+			Ps_y_given_x.shape[axes.index(1)]),ndim=2)
                        
         # Compute cost
 	rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
