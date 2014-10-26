@@ -44,14 +44,29 @@ def el2bbox(el):
     el must be in the form [ra, rb, theta, cx, cy]
     """
     [ra, rb, theta, cx, cy] = el
-    return [cx - ra, cy - rb, 2*ra, 2*rb]
+    return [cx - rb, cy - ra, 2*rb, 2*ra]
+
+
+def show_annot(img, rect, el):
+
+    [x, y, w, h] = rect
+    [xe, ye, we, he] = el2bbox(el)
+    [ra, rb, theta, cx, cy] = el
+    cv2.rectangle(img, (x, y),(x+h, y+h),
+                  (0, 255, 0), 2)
+    cv2.ellipse(img, (int(cx),int(cy)), (int(rb), int(ra)), int(theta),
+                0, 360, (0, 0, 255), 2)
+    cv2.rectangle(img, (int(xe), int(ye)),(int(xe+he), int(ye+he)),
+                  (0, 0, 255), 2)
+    cv2.imshow("img", img)
+
 
 
 def generate_reg_data(bbox_file, annot_file,
                       save_feats, save_label,
                       extract_feats = None,
                       size_feats = 0,
-                      path_size=48,
+                      patch_size=48,
                       area_thres = 0.3):
 
     # Load annotation
@@ -93,49 +108,74 @@ def generate_reg_data(bbox_file, annot_file,
     ### Compute the number of overlapped ellipse/bbox
     nb_ex = 0
     for i in xrange(0, len(annot)):
+        #img_file = join(base_dir, bbox_im[i] +".jpg")
+        #img = cv2.imread(img_file)
         for j in xrange(0, len(bbox[i])):
             for k in xrange(0, len(annot[i])):
                 if IoU(bbox[i][j], el2bbox(annot[i][k])) > area_thres:
                     nb_ex += 1
+                    #print "Here", nb_ex
+                #show_annot(img, bbox[i][j], annot[i][k])
+                #cv2.waitKey(0)
 
 
     print "Found", nb_ex, "Overlapped annotation"
     ### Create feats, labels matrix
-    feats = np.zeros((nb_ex, 4 + size_feats))
+    feats = np.zeros((nb_ex, 2 + size_feats))
     labels = np.zeros((nb_ex, 5))
+    coords = np.zeros((nb_ex, 2))
 
     ### fills the feats, labels matrix
     cur = 0
-    for i in xrange(0, len(annot)):
+    for i in xrange(0, len(bbox_im)):
         for j in xrange(0, len(bbox[i])):
             for k in xrange(0, len(annot[i])):
                 if IoU(bbox[i][j], el2bbox(annot[i][k])) > area_thres:
                     print cur, len(bbox[i])
-                    feats[cur, 0:4] = bbox[i][j]
-                    labels[cur, :] = annot[i][k]
+
+                    [x, y, w, h] = bbox[i][j]
+                    [ra, rb, theta, cx, cy] = annot[i][k]
+
+                    feats[cur, 0:2] = [w, h]
+                    ### Elipse size and center offset
+                    labels[cur, :] =[ra, rb, theta, cx - x, cy - y]
+                    ### Store the offset in coords
+                    coords[cur, :] = [x, y]
+
                     if extract_feats != None:
                         ### Load img
-                        image_file = join(base_dir, line[:-1]+".jpg")
-                        img = cv2.imread(image_file)
+                        img_file = join(base_dir, bbox_im[i] +".jpg")
+                        img = cv2.imread(img_file)
                         ### Extract patch
-                        [x, y, w, h] = bbox[i][j]
-                        patch = img[int(max(0, int(x))):
-                                        int(min(img.shape[0], int(x+w))),
-                                    int(max(0, int(y))):
-                                        int(min(img.shape[1], int(x+y))), :]
-                        patch = np.reshape(patch, list(image.shape)+[1])
+                        #[x, y, w, h] = bbox[i][j]
+                        #print img.shape
+                        patch = img[int(max(0, int(y))):
+                                        int(min(img.shape[0], int(y+h))),
+                                    int(max(0, int(x))):
+                                        int(min(img.shape[1], int(x+w))), :]
+                        #print x,y, w, h, patch.shape
+                        patch = cv2.resize(patch, (patch_size, patch_size),
+                                           interpolation=cv2.INTER_CUBIC)
+
+                        #show_annot(img, bbox[i][j], annot[i][k])
+                        #cv2.imshow("patch", patch)
+                        #cv2.waitKey(0)
+                        patch = np.reshape(patch, list(patch.shape)+[1])
                         ## C01B
                         patch = np.transpose(patch, (2, 0, 1, 3))
                         ### BC01
-                        patch = np.transpose(image, (3, 0, 1, 2))
-                        feat = extract_feats(path)
-                        feat = feats.reshape(1, feat.shape[0]* feat.shape[1] * feat.shape[2] * feat.shape[3])
-                        feats[cur, 4:] = feat
+                        patch = np.transpose(patch, (3, 0, 1, 2))
+                        #print patch.shape
+                        feat = extract_feats(patch)
+                        feat = feat.reshape(1,
+                                            feat.shape[0]*feat.shape[1]*feat.shape[2]*feat.shape[3])
+                        feats[cur, 2:] = feat
                     cur += 1
 
     # write the output labels
     np.save(save_feats, feats)
     np.save(save_label, labels)
+    np.save(save_label + "_coord.npy", coords)
 
 
 if __name__ == '__main__':
@@ -146,15 +186,18 @@ if __name__ == '__main__':
         sys.exit(2)
 
 
-    feats_size = 512
+    path_size = 48
+    feats_size = 2*2*512
     extractfeat = None
     if len(sys.argv) == 6:
         with open(sys.argv[5], 'r') as m_f:
             model = pkl.load(m_f)
+
+        print model
         ## Sigmoid/Softmax
         model.layers.pop()
         ## FC connected layers
-        model.layer.pop()
+        model.layers.pop()
         x = T.tensor4('x')
         extractfeat = function([x], model.fprop(x))
 
@@ -162,6 +205,7 @@ if __name__ == '__main__':
 
     generate_reg_data(sys.argv[1], sys.argv[2],
                       sys.argv[3], sys.argv[4],
-                      extractfeat, feats_size)
+                      extractfeat, feats_size,
+                      path_size)
 
 
