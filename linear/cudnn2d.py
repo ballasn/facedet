@@ -39,13 +39,13 @@ class Cudnn2D(OrigConv2D):
         self.input_space = input_space
         self.output_axes = output_axes
         self._pad = pad
-        self.subsample = subsample
+        self.subsample = tuple(subsample)
 
         super(Cudnn2D, self).__init__(
             filters=filters,
             img_shape=(batch_size, input_space.num_channels,
                        input_space.shape[0], input_space.shape[1]),
-            subsample=subsample,
+            subsample=self.subsample,
             border_mode=border_mode,
             filters_shape=filters.get_value(borrow=True).shape,
             message=message
@@ -53,6 +53,8 @@ class Cudnn2D(OrigConv2D):
 
         # conv_op has to be changed
         self.conv_op = GpuDnnConv()
+        self.desc = GpuDnnConvDesc(border_mode='valid', subsample=self.subsample,
+                              conv_mode='conv')
         #self.conv_op = GpuCorrMM(subsample=self._subsample,
         #                         border_mode=border_mode,
         #                         pad=pad)
@@ -105,8 +107,7 @@ class Cudnn2D(OrigConv2D):
         # The calling format has to be changed
         img = gpu_contiguous(x)
         kerns = gpu_contiguous(self._filters)
-        desc = GpuDnnConvDesc(border_mode='valid', subsample=(1,1),
-                              conv_mode='conv')(img.shape, kerns.shape)
+        desc = self.desc(img.shape, kerns.shape)
         rval = self.conv_op(img, kerns, desc)
 
         # Format the output based on the output space
@@ -159,7 +160,7 @@ def make_random_conv2D(irange, input_space, output_space,
         batch_size=batch_size,
         input_space=input_space,
         output_axes=output_space.axes,
-        subsample=subsample, border_mode=border_mode, pad=pad,
+        subsample=tuple(subsample), border_mode=border_mode, pad=pad,
         filters_shape=W.get_value(borrow=True).shape, message=message
     )
 
