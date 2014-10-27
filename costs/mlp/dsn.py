@@ -145,7 +145,10 @@ class DSN_dropout(DSN) :
             ### For now, no drop-out on companion
             if layer_name in self.companion:
                 ### How to do so at init?
-                self.companion[layer_name].mlp = model
+                print "layer dsn:", layer_name, self.companion[layer_name].get_mlp()
+
+                if self.companion[layer_name].get_mlp() is None:
+                    self.companion[layer_name].set_mlp(model)
                 self.companion[layer_name].set_input_space(layer.get_output_space())
 
                 Y_tmp = self.companion[layer_name].fprop(state_below)
