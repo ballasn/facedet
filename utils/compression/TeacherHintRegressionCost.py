@@ -73,7 +73,7 @@ class TeacherHintRegressionCost(DefaultDataSpecsMixin, Cost):
 	else:
 	  # Compute cost
 	  cost = 0.5*(hint - student_output)**2
-	  cost = T.sum(cost)
+	  cost = T.mean(cost,axis=1) #sum
         
         return T.mean(cost)
         
