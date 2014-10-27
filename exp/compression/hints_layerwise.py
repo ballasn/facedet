@@ -132,6 +132,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
       hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
       student.model.layers.append(hint_reg_layer)
     elif regressor_type == 'fc':
+      raise NotImplementedError('FC')
       # Add fully-connected regressor
       hint_reg_layer = generateNonConvRegressor(teacher.layers[hintlayer], student_output_space)
       hint_reg_layer.set_mlp(student.model)  
@@ -139,7 +140,6 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
       student.model.layers.append(hint_reg_layer)
     else:
       raise AssertionError("Unknown regressor type")
-      pass
 
     # Change cost to optimize wrt teacher hints
     student.algorithm.cost = TeacherHintRegressionCost(teacher,hintlayer)
@@ -157,7 +157,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
   student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
     
   # Freeze parameters of the layers trained in the last subnetworks
-  #for i in range(0,fromto_student[0]-1):
+  #for i in range(0,fromto_student[0]):
   #  student.model.freeze(student.model.layers[i].get_params())
 
   return student
@@ -219,7 +219,7 @@ def main(argv):
   print 'Training student softmax layer'
 
   # Train softmax layer and stack it to the pretrained student network
-  softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1) 
+  softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1,regressor_type) 
   softmax_hint.main_loop()
   student.model.layers = softmax_hint.model.layers
   
