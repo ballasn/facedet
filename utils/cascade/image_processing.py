@@ -50,7 +50,10 @@ def apply_fprop(fprop_func, image):
     # If BC01 used, the output is BP01
     # prob_map = rval[0, 0, :, :]
     #print 'shape of probs map', prob_map.shape
+    # BP01 : Softmax
     return rval[0, 0, :, :]
+    # 01BP : Sigmoid
+    return rval[:, :, 0, 0]
 
 
 def rescale(image, scale, pred_size):
