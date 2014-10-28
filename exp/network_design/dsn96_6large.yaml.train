@@ -1,0 +1,273 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:datasets.faceDataset_hdf5.faceDataset {
+    #dataset: &train !obj:datasets.faceDataset.faceDataset {
+                which_set: 'train',
+                        ratio: 0.9,
+                        positive_samples: "/part/02/Tmp/ballasn/facedet/96/pos96_norsz.hdf",
+                        negative_samples: "/part/02/Tmp/ballasn/facedet/96/imagenet96.hdf",
+                        #positive_samples: "/part/02/Tmp/ballasn/facedet/96/feats96.npy",
+                        #negative_samples: "/part/02/Tmp/ballasn/facedet/96/neg100000_96_filt.npy",
+#                        resize_neg: True,
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+                layers: [
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c0',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     kernel_stride: [1, 1],
+                     irange: .005,
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c0n',
+                     output_channels: 64,
+                     kernel_shape: [1, 1],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c1',
+                     output_channels: 128,
+                     kernel_shape: [3, 3],
+                     kernel_stride: [1, 1],
+                     irange: .005,
+                     max_kernel_norm: 7.9,
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c1n',
+                     output_channels: 64,
+                     kernel_shape: [1, 1],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c2',
+                     output_channels: 256,
+                     kernel_shape: [3, 3],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c2n',
+                     output_channels: 128,
+                     kernel_shape: [1, 1],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 # !obj:models.layer.convVariable.ConvElemwise {
+                 #     layer_name: 'c3',
+                 #     output_channels: 256,
+                 #     kernel_shape: [2, 2],
+                 #     pool_type: 'max',
+                 #     pool_shape: [2,2],
+                 #     pool_stride: [2,2],
+                 #     irange: .05,
+                 #     max_kernel_norm: 7.9,
+                 #     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                 #     tied_b: 1
+                 # },
+                 # !obj:models.layer.convVariable.ConvElemwise {
+                 #     layer_name: 'c3n',
+                 #     output_channels: 128,
+                 #     kernel_shape: [1, 1],
+                 #     irange: .1,
+                 #     max_kernel_norm: 7.9,
+                 #     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                 #     tied_b: 1
+                 # },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c4',
+                     output_channels: 512,
+                     kernel_shape: [3, 3],
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c4n',
+                     output_channels: 256,
+                     kernel_shape: [1, 1],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c5',
+                     output_channels: 512,
+                     kernel_shape: [3, 3],
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c5n',
+                     output_channels: 256,
+                     kernel_shape: [2, 2],
+                     pool_type: 'max',
+                     pool_shape: [2,2],
+                     pool_stride: [2,2],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c6',
+                     output_channels: 2048,
+                     kernel_shape: [1, 1],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'c6n',
+                     output_channels: 512,
+                     kernel_shape: [1, 1],
+                     irange: .1,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1
+                 },
+                 !obj:models.layer.convVariable.ConvElemwise {
+                     layer_name: 'out',
+                     output_channels: 2,
+                     kernel_shape: [2,2],
+                     irange: .05,
+                     max_kernel_norm: 7.9,
+                     nonlinearity: !obj:pylearn2.models.mlp.RectifierConvNonlinearity {},
+                     tied_b: 1,
+
+                 },
+                 !obj:models.layer.SigmoidBC01Extended.SigmoidExtended {
+                     layer_name: 'y',
+                     n_classes: 2,
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [96, 96],
+            num_channels: 3,
+            axes: ['b', 'c', 0, 1],
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .00005,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum        {
+            init_momentum: 0.1,
+        },
+        train_iteration_mode: 'batchwise_shuffled_sequential',
+        monitor_iteration_mode: 'even_sequential',
+        monitoring_dataset:
+            {
+                #'train': *train,
+                'aflw' : !obj:datasets.faceDataset.faceDataset {
+                        which_set: 'valid',
+                        positive_samples: "/part/02/Tmp/ballasn/facedet/96/feats96.npy",
+                        negative_samples: "/part/02/Tmp/ballasn/facedet/96/neg100000_96_filt.npy",
+                        resize_neg: True,
+                        },
+               'valid': !obj:datasets.faceDataset_hdf5.faceDataset {
+                        # !obj:datasets.faceDataset.faceDataset {
+                      which_set: 'valid',
+                      ratio: 0.9,
+                      positive_samples: "/part/02/Tmp/ballasn/facedet/96_2/pos96_norsz.hdf",
+                      negative_samples: "/part/02/Tmp/ballasn/facedet/96_2/imagenet96.hdf",
+    },
+            },
+        cost: !obj:costs.mlp.dsn.DSN_dropout {
+            companion: { 'c1n': !obj:models.layer.layerlist.LayerList {
+                              layer_name: 'c1nn',
+                              layers: [
+                                 !obj:models.layer.poolUnit.PoolUnit {
+                                   layer_name: 'c1n_1',
+                                   pool_type: 'max',
+                                   pool_shape: [6,6],
+                                   pool_stride: [6,6],
+                                 },
+                                !obj:pylearn2.models.mlp.Softmax {
+                                               max_col_norm: 1.9365,
+                                               layer_name: 'c1n_2',
+                                               n_classes: 2,
+ #                                              C: 0.01,
+                                               irange: .005 },
+                              ]
+                         },
+                        'c4n': !obj:models.layer.layerlist.LayerList {
+                              layer_name: 'c4nn',
+                              layers: [
+                              !obj:models.layer.poolUnit.PoolUnit {
+                                     layer_name: 'c4n_1',
+                                      pool_type: 'max',
+                                      pool_shape: [3,3],
+                                      pool_stride: [3,3],
+                                 },
+                          !obj:pylearn2.models.mlp.Softmax {
+                                               max_col_norm: 1.9365,
+                                               layer_name: 'c4n_2',
+                                               n_classes: 2,
+  #                                             C: 0.01,
+                                               irange: .005 },
+                                   ],
+                        },
+                       },
+            companion_weight: {'c1n': 0.3, 'c4n': 0.3},
+            default_input_include_prob: 1.0,
+            default_input_scale: 1.0,
+            input_include_probs: {'c5': 0.5},
+            input_scales: {'c5': 2},
+         },
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 1000,
+            new_epochs: True
+        },
+    },
+    extensions: [
+       !obj:facedet.training_algorithms.sgd.MonitorBasedLRDecay {
+               nb_epoch: 20,
+               shrink_lr: 0.1,
+               min_lr: 0.00001,
+               channel_name: 'valid_y_misclass'
+        },
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            start: 5,
+            saturate: 50,
+            final_momentum: .9
+        },
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                channel_name: 'valid_y_misclass',
+                save_path: "models/${PYLEARN2_TRAIN_FILE_STEM}_best.pkl"
+            }
+    ],
+    save_path: "models/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+    save_freq: 1
+}
+
