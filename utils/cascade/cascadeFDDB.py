@@ -19,7 +19,7 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
                  fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/",
                  img_dir="/data/lisa/data/faces/FDDB/",
                  mode='rect',
-                 max_det=30):
+                 max_det=60):
     """
     Apply the cascade of fprops to the folds
     Write the results at <out_dir>/fold-<nb_fold>-out.txt
@@ -89,11 +89,10 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
 
 
 def process_pascal(models, fprops, scales, sizes, strides, probs, overlap_ratio,
-                   nb_fold,
                    out_dir,
                    id_list="/data/lisa/data/faces/AFW/annot/list",
                    img_dir="/data/lisa/data/faces/AFW/testimages/",
-                   max_det=-1):
+                   max_det=30):
     """
     Apply the cascade of fprops to the folds
     Write the results at <out_dir>/res-out.txt in pascal VOC format
@@ -113,21 +112,34 @@ def process_pascal(models, fprops, scales, sizes, strides, probs, overlap_ratio,
     scores_tot = []
     l_f = len(files)
     for i, f in enumerate(files):
-        sys.stdout.write("\r" + str(i) + "/" + str(l_f) + " processed images | " + f)
+        sys.stdout.write(str(i) + "/" + str(l_f) + " processed images | " + f)
         sys.stdout.flush()
         # Perform cascade classificiation on image f
         if isfile(f):
             img_ = cv2.imread(f)
+            ### If max dim > 640, resize
+            if max(img_.shape[0], img_.shape[1]) > 240:
+                if img_.shape[0] > img_.shape[1]:
+                    rs = 240.0 / img_.shape[0]
+                else:
+                    rs = 240.0 / img_.shape[1]
+                #print rs, int(img_.shape[0] * rs), int(img_.shape[1] * rs)
+                #exit(1)
+                img_ = cv2.resize(img_, (int(img_.shape[1] * rs), int(img_.shape[0] * rs)))
+                #cv2.imshow("input", img_)
+                #cv2.waitKey()
+
             rois, scores = cascade(img_, models, fprops, scales, sizes, strides, overlap_ratio, probs)
             rois_tot.append(rois)
             scores_tot.append(scores)
+            print " :", len(rois)
         else:
             rois_tot.append([])
             scores_tot.append([])
 
     # Writing detections in PascalVOC format
-    output = join(out_dir, "detection.txt")
-    with open(output_fold, 'w') as output:
+    outputf = join(out_dir, "detection.txt")
+    with open(outputf, 'w') as output:
         for i, f in enumerate(files):
             if max_det != -1:
                 m = min(max_det, len(rois_tot[i]))
@@ -140,13 +152,14 @@ def process_pascal(models, fprops, scales, sizes, strides, probs, overlap_ratio,
             for roi, score in zip(rois_tot[i][:m], scores_tot[i][:m]):
 
                 # <img_id score left top right bottom>
-                x = roi[0, 1]
-                y = roi[0, 0]
-                w = roi[1, 1] - roi[0, 1]
-                h = roi[1, 0] - roi[0, 0]
+                x = int(np.floor(roi[0, 1] * (1-rs)))
+                y = int(np.floor(roi[0, 0] * (1-rs)))
+                w = int(np.floor(roi[1, 1] - roi[0, 1]) * (1-rs))
+                h = int(np.floor(roi[1, 0] - roi[0, 0]) * (1-rs))
 
                 output.write(ids[i] + ' ' + str(score)+ ' ')
-                output.write(str(x) + ' ' + str(y+h) + ' ' + str(x+w) + ' ' + str(y) + '\n')
+                output.write(str(y) + ' ' + str(x+w) + ' ' + str(y+h) + ' ' + str(x) + '\n')
+                print ids[i] + ' ' + str(score), str(x) + ' ' + str(y+h) + ' ' + str(x+w) + ' ' + str(y)
 
 
 if __name__ == '__main__':
@@ -156,7 +169,8 @@ if __name__ == '__main__':
         sys.exit(2)
 
 
-    mode = "pascal"
+    mode = "fddb"
+    #mode = "pascal"
 
     model_file16 = sys.argv[1]
     model_file48 = sys.argv[2]
@@ -169,7 +183,7 @@ if __name__ == '__main__':
 
 
     nb_fold = 1
-    out_dir = 'results/outputAFLW/'
+    out_dir = 'results/output5/'
 
     with open(model_file16, 'r') as m_f:
         model16 = pkl.load(m_f)
@@ -218,10 +232,10 @@ if __name__ == '__main__':
     global_scales2 = [(1.0/ratio)**e for e in range(0, 11)]
     local_scales = [global_scales2]
     #local_scales[0].append(1.2)
-    local_scales[-1].append(1.2)
-    local_scales[-1].append(1.4)
-    local_scales[-1].append(1.6)
-    local_scales[-1].append(1.8)
+    #local_scales[-1].append(1.2)
+    #local_scales[-1].append(1.4)
+    #local_scales[-1].append(1.6)
+    #local_scales[-1].append(1.8)
     print 'local_scales', local_scales
 
     # Check that the smallest patch is larger than 20 px
@@ -248,4 +262,4 @@ if __name__ == '__main__':
         print t-t_orig, 'seconds for FDDB'
     else:
         process_pascal(models, fprops, local_scales, sizes, strides, probs,
-                       overlap_ratio, nb, out_dir)
+                       overlap_ratio, out_dir)
