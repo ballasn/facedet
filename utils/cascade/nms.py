@@ -205,7 +205,7 @@ def overlap_scale(a, b, size, stride):
     return overlap(pa, pb)
 
 
-def fast_nms(maps, size, stride, prob):
+def fast_nms(maps, size, stride, prob, overlap_ratio):
     """
     Perform NMS scale by scale first using filters from scipy
     Then perform spatial pooling
@@ -219,7 +219,7 @@ def fast_nms(maps, size, stride, prob):
     # Define overlapping region
     # The filter has size over,over and is centered on a point
     over = 2 * ((size - 1) / stride) + 1
-    over = int(over * 0.7)
+    over = int(over * (1.0 - overlap_ratio))
     for s in maps:
         # Apply the filter to the overlapping region
         maps[s] = maps[s] * (maps[s] > prob)
@@ -246,8 +246,11 @@ def dummy_nms(maps, prob):
         n_z = np.transpose(np.nonzero(maps[s]))
         rval.extend([[s, n_z[e, 0], n_z[e, 1], maps[s][n_z[e, 0], n_z[e, 1]]]
                      for e in range(len(n_z))])
-
-    rval.sort(key=lambda x: x[3], reverse=True)
+    print 'nb of nonzero patches :', len(rval)
+    if rval != []:
+        rval.sort(key=lambda x: x[3], reverse=True)
+        print 'min :', min(rval, key=lambda x: x[3])
+        print'max :', max(rval, key=lambda x: x[3])
     return rval
 
 
