@@ -1,3 +1,4 @@
+#! /Tmp/lisa/os_v3/canopy/bin/python
 import sys
 import os.path
 import cPickle as pkl
@@ -28,7 +29,8 @@ def train_again(yaml):
         trained_model = pkl.load(m_f)
 
     # Define the continuing one
-    new_model = push_monitor(trained_model, 'trained_model')
+    new_model = push_monitor(trained_model, 'trained_model',
+                             transfer_experience=True)
     # Define it as the model to be trained
     context.model = new_model
     # Train again
