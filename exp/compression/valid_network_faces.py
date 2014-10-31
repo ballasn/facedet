@@ -78,10 +78,12 @@ if __name__ == '__main__':
   # Evaluate performance/time  
   error_inc = error_student - error_teacher
   time_inc = elapsed_time_student - elapsed_time_teacher
+  speedup = (elapsed_time_teacher-elapsed_time_student)/elapsed_time_teacher
 
   # Print results
   print 'Teacher time is %fs' % (elapsed_time_teacher)
   print 'Student time is %fs' % (elapsed_time_student)
-  print 'Teacher error is %fs' % (error_teacher)
-  print 'Student error is %fs' % (error_student)
-  print 'Error increment is %f and time increment is %fs' % (error_inc, time_inc)
+  print 'Teacher error is %f' % (error_teacher)
+  print 'Student error is %f' % (error_student)
+  print 'Error increment is %f and time increment is %f' % (error_inc, time_inc)
+  print 'Speed up is %f' % (speedup)
