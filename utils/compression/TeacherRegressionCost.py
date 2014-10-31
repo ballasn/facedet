@@ -2,6 +2,9 @@ import theano.tensor as T
 import cPickle as pkl
 from theano.compat.python2x import OrderedDict
 from pylearn2.costs.cost import DefaultDataSpecsMixin, Cost
+from models.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.SigmoidBC01Extended import SigmoidExtended
+
 
 class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     """
@@ -14,7 +17,6 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     supervised = True
     
     def __init__(self, teacher_path, relaxation_term=1, weight=1, hints=None):
-
       self.relaxation_term = relaxation_term
       
       # Load teacher network and change parameters according to relaxation_term.
@@ -33,38 +35,71 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     def cost_wrt_target(self, model, data):
         space, sources = self.get_data_specs(model)
         space.validate(data)
-        (x, y) = data
-                
-        targets = T.argmax(y, axis=1)
+        (x, targets) = data
+                        
+        axes = model.input_space.axes
                         
         # Compute student output
         Ps_y_given_x = model.fprop(x)
         
-        # Compute cost
-        rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
+        if isinstance(model.layers[-1], SigmoidExtended):
+	  Ps_y_given_x = Ps_y_given_x.dimshuffle(2,3,0,1)
         
+        if isinstance(model.layers[-1], SoftmaxExtended) or isinstance(model.layers[-1], SigmoidExtended):
+	  Ps_y_given_x = Ps_y_given_x.reshape(shape=(Ps_y_given_x.shape[axes.index('b')],
+			Ps_y_given_x.shape[axes.index('c')]*
+			Ps_y_given_x.shape[axes.index(0)]*
+			Ps_y_given_x.shape[axes.index(1)]),ndim=2)
+			
+
+        # Compute cross-entropy cost
+        if targets.ndim > 1:
+	  targets = T.argmax(targets, axis=1)
+	  rval = -T.log(Ps_y_given_x)[T.arange(targets.shape[0]), targets]
+	else:
+	  # for binary p: - p log q - (1-p) log (1-q), p is the true distribution, q is the predicted distribution
+	  rval = - targets * T.log(Ps_y_given_x) - (1 - targets) * T.log(1 - Ps_y_given_x)
+	  
+        rval = rval.astype('float32')
+
+	  
         return rval
         
     def cost_wrt_teacher(self, model, data):
         space, sources = self.get_data_specs(model)
         space.validate(data)
         (x, y) = data
+        
+        axes = model.input_space.axes
                                                 
         # Compute teacher relaxed output
 	Pt_y_given_x_relaxed = self.teacher.fprop(x)
-
-	# Relax student softmax layer using relaxation_term.
+	
+	# Compute student relaxed output
 	sparams = model.layers[-1].get_param_values()
-	sparams = [item/float(self.relaxation_term) for item in sparams]
-	model.layers[-1].set_param_values(sparams)
-	        
-        # Compute student relaxed output
-        Ps_y_given_x_relaxed = model.fprop(x)
+	sparams_relaxed = [item/float(self.relaxation_term) for item in sparams]
+	model.layers[-1].set_param_values(sparams_relaxed) 
+        Ps_y_given_x_relaxed = model.fprop(x)	
+        model.layers[-1].set_param_values(sparams)
+	
+	if isinstance(model.layers[-1], SigmoidExtended):
+	  Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.dimshuffle(2,3,0,1)
+	  Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.dimshuffle(2,3,0,1)
 
+	if isinstance(self.teacher.layers[-1], SoftmaxExtended) or isinstance(self.teacher.layers[-1], SigmoidExtended):
+	  Pt_y_given_x_relaxed = Pt_y_given_x_relaxed.reshape(shape=(Pt_y_given_x_relaxed.shape[axes.index('b')],
+				Pt_y_given_x_relaxed.shape[axes.index('c')]*
+				Pt_y_given_x_relaxed.shape[axes.index(0)]*
+				Pt_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)		
+        
+     	  Ps_y_given_x_relaxed = Ps_y_given_x_relaxed.reshape(shape=(Ps_y_given_x_relaxed.shape[axes.index('b')],
+				Ps_y_given_x_relaxed.shape[axes.index('c')]*
+				Ps_y_given_x_relaxed.shape[axes.index(0)]*
+				Ps_y_given_x_relaxed.shape[axes.index(1)]),ndim=2)	
+                
 	# Compute cost
         rval = -T.log(Ps_y_given_x_relaxed) * Pt_y_given_x_relaxed 
         rval = T.sum(rval, axis=1)
-        
         return rval  
         
     def expr(self, model, data, ** kwargs):
@@ -78,6 +113,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         kwargs : dict
             Optional extra arguments. Not used by the base class.
         """
+        
 	cost_wrt_y = self.cost_wrt_target(model,data)
         cost_wrt_teacher = self.cost_wrt_teacher(model,data)
         
@@ -117,9 +153,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
             Maps channels names to expressions for channel values.
         """
                
-	#rval = super(TeacherRegressionCost, self).get_monitoring_channels(model,data)
-	
-	rval = OrderedDict()
+	rval = super(TeacherRegressionCost, self).get_monitoring_channels(model,data)
 	                
         value_cost_wrt_target = self.cost_wrt_target(model,data)
         if value_cost_wrt_target is not None:
@@ -132,8 +166,6 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 	   rval[name] = T.mean(value_cost_wrt_teacher)
 	   	
         return rval        
-
-
 
 
 
