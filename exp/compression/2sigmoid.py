@@ -20,7 +20,7 @@ from models.layer.convVariable import ConvElemwise
 from pylearn2.models.mlp import IdentityConvNonlinearity
 
 from pylearn2.train import Train
-
+from pylearn2.utils import serial
 
 def main(argv, freeze):
 
@@ -34,7 +34,8 @@ def main(argv, freeze):
 
   # Load yaml
   with open(yaml, "r") as sty:
-    train = yaml_parse.load(sty)
+    train = serial.load_train_file(yaml)
+    #train = yaml_parse.load(sty)
 
 
   # Load pretrained model with bad sigmoid output
@@ -50,7 +51,7 @@ def main(argv, freeze):
   ### Add last conv elemwise
   layer = ConvElemwise(layer_name= 'out',
                        output_channels= 1,
-                       kernel_shape=[2,2],
+                       kernel_shape=(1,1),
                        irange=0.05,
                        nonlinearity=IdentityConvNonlinearity(),
                        max_kernel_norm= 7.9,
