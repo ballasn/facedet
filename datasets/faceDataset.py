@@ -36,7 +36,8 @@ class faceDataset(dataset.Dataset):
                  resize_neg=False,
                  axes=('b', 'c', 0, 1),
                  nb_examples=[None, None],
-                 keep_ids=False):
+                 keep_ids=False,
+                 sigmoid_output=False):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -134,6 +135,8 @@ class faceDataset(dataset.Dataset):
         if self.keep_ids:
             self.ids_order = []
 
+        self.sigmoid_output = sigmoid_output
+
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
                       data_specs, return_tuple):
@@ -141,8 +144,13 @@ class faceDataset(dataset.Dataset):
         # Initialize data
         x = np.zeros([minibatch_size, self.positives.shape[1]],
                      dtype="float32")
-        y = np.zeros([minibatch_size, 2],
-                     dtype="float32")
+
+        if self.sigmoid_output:
+            y = np.zeros([minibatch_size, 1],
+                         dtype="float32")
+        else:
+            y = np.zeros([minibatch_size, 2],
+                         dtype="float32")
 
         # Get number of positives and negatives examples
         # nb_pos = int(0.5 * minibatch_size)
@@ -165,7 +173,8 @@ class faceDataset(dataset.Dataset):
         x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
         y[0:nb_pos, 0] = 1
         x[nb_pos:nb_pos+nb_neg, :] = self.negatives[cur_negatives:cur_negatives+nb_neg, :]
-        y[nb_pos:nb_pos+nb_neg, 1] = 1
+        if not self.sigmoid_output:
+            y[nb_pos:nb_pos+nb_neg, 1] = 1
 
         # remove mean
         if self.mean is not None:
