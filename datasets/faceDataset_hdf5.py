@@ -33,7 +33,8 @@ class faceDataset(dataset.Dataset):
                  ratio=0.8,
                  batch_size=128,
                  axes=('b', 'c', 0, 1),
-                 nb_examples=[None, None]):
+                 nb_examples=[None, None],
+                 sigmoid_output=False):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
@@ -102,16 +103,22 @@ class faceDataset(dataset.Dataset):
         for e in self.axes:
             new_axes.append(data_axes.index(e))
         self.permutation = tuple(new_axes)  # Permutation to be applied
+        self.sigmoid_output = sigmoid_output
 
     def get_minibatch(self, cur_positives, cur_negatives,
                       minibatch_size,
                       data_specs, return_tuple):
 
+
         # Initialize data
         x = np.zeros([minibatch_size, self.positives_shape[1]],
                      dtype="float32")
-        y = np.zeros([minibatch_size, 2],
-                     dtype="float32")
+        if self.sigmoid_output:
+            y = np.zeros([minibatch_size, 1],
+                         dtype="float32")
+        else:
+            y = np.zeros([minibatch_size, 2],
+                         dtype="float32")
 
         # Get number of positives and negatives examples
         # nb_pos = int(0.5 * minibatch_size)
@@ -143,7 +150,8 @@ class faceDataset(dataset.Dataset):
 
         x[nb_pos: nb_pos + nb_neg, :] = self.negatives[cur_neg_: cur_neg_
                 + nb_neg, :]
-        y[nb_pos: nb_pos + nb_neg, 1] = 1
+        if not self.sigmoid_output:
+            y[nb_pos: nb_pos + nb_neg, 1] = 1
 
         # Transforming into B01C
         x = np.reshape(x, [minibatch_size] + self.img_shape)

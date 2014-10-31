@@ -1,3 +1,4 @@
+
 import theano
 import theano.printing as printing
 from pylearn2.models.mlp import *
@@ -69,7 +70,7 @@ class SigmoidExtended(Layer):
 
         desired_dim = self.n_classes
 
-        assert self.input_space.num_channels == 2
+        assert self.input_space.num_channels == 1
         self._params = []
 
 
@@ -79,7 +80,7 @@ class SigmoidExtended(Layer):
 
         self.input_space.validate(state_below)
         p = T.nnet.sigmoid(state_below.dimshuffle(2, 3, 0, 1))
-	p = p.dimshuffle(2,3,0,1)
+	#p = p.dimshuffle(2,3,0,1)
         return p
 
     @wraps(Layer.cost)

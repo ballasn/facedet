@@ -34,7 +34,7 @@
                  },
                  !obj:models.layer.convVariable.ConvElemwise {
                      layer_name: 'c2',
-                     output_channels: 2,
+                     output_channels: 512,
                      kernel_shape: [2, 2],
                      irange: .05,
                      max_kernel_norm: 2.9,
@@ -77,20 +77,20 @@
                   #      irange: .005,
                   #      thresholds: [0.2, 0.4]
                   # }
-                  !obj:models.layer.SigmoidBC01Extended.SigmoidExtended {
-                       #max_col_norm: 1.9365,
-                       layer_name: 'y',
-                       n_classes: 2,
-                       #irange: .005,
-                       thresholds: [0.2, 0.4]
-                   }
-                 # !obj:pylearn2.models.mlp.Softmax {
-                 #     #max_col_norm: 1.9365,
-                 #     layer_name: 'y',
-                 #     n_classes: 2,
-                 #     irange: .005,
-                 #     max_col_norm: 4.
-                 # }
+                 # !obj:models.layer.SigmoidBC01Extended.SigmoidExtended {
+                 #      #max_col_norm: 1.9365,
+                 #      layer_name: 'y',
+                 #      n_classes: 2,
+                 #      #irange: .005,
+                 #      thresholds: [0.2, 0.4]
+                 #  }
+                  !obj:pylearn2.models.mlp.Softmax {
+                      #max_col_norm: 1.9365,
+                      layer_name: 'y',
+                      n_classes: 2,
+                      irange: .005,
+                      max_col_norm: 4.
+                  }
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
             shape: [16, 16],

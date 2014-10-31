@@ -115,7 +115,6 @@ class PoolUnit(Layer):
                 dummy_p = downsample.max_pool_2d(dummy_detector,
                                                  self.pool_shape,
                                                  ignore_border=False)
-
                 # dummy_p = max_pool(bc01=dummy_detector,
                 #                    pool_shape=self.pool_shape,
                 #                    pool_stride=self.pool_stride,
