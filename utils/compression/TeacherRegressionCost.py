@@ -16,7 +16,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
     # (X, Y) pair, and Y cannot be None.
     supervised = True
     
-    def __init__(self, teacher_path, relaxation_term=1, weight=1, hints=None):
+    def __init__(self, teacher_path, relaxation_term=1, wtarget=1, wteach=1, hints=None):
       self.relaxation_term = relaxation_term
       
       # Load teacher network and change parameters according to relaxation_term.
@@ -29,7 +29,8 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
       teacher.layers[-1].set_param_values(tparams)
 
       self.teacher = teacher
-      self.weight = weight
+      self.wtarget = wtarget
+      self.wteach = wteach
       self.hints = hints
       
     def cost_wrt_target(self, model, data):
@@ -118,7 +119,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         cost_wrt_teacher = self.cost_wrt_teacher(model,data)
         
 	# Compute cost
-        cost = self.weight*cost_wrt_y + cost_wrt_teacher
+        cost = self.wtarget*cost_wrt_y + self.wteach*cost_wrt_teacher
         
         return T.mean(cost)
         
@@ -158,12 +159,12 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         value_cost_wrt_target = self.cost_wrt_target(model,data)
         if value_cost_wrt_target is not None:
 	   name = 'cost_wrt_target'
-	   rval[name] = self.weight*T.mean(value_cost_wrt_target)
+	   rval[name] = self.wtarget*T.mean(value_cost_wrt_target)
                 
         value_cost_wrt_teacher = self.cost_wrt_teacher(model,data)
         if value_cost_wrt_teacher is not None:
 	   name = 'cost_wrt_teacher'
-	   rval[name] = T.mean(value_cost_wrt_teacher)
+	   rval[name] = self.wteach*T.mean(value_cost_wrt_teacher)
 	   	
         return rval        
 
