@@ -246,11 +246,11 @@ def dummy_nms(maps, prob):
         n_z = np.transpose(np.nonzero(maps[s]))
         rval.extend([[s, n_z[e, 0], n_z[e, 1], maps[s][n_z[e, 0], n_z[e, 1]]]
                      for e in range(len(n_z))])
-    print 'nb of nonzero patches :', len(rval)
+    #print 'nb of nonzero patches :', len(rval)
     if rval != []:
         rval.sort(key=lambda x: x[3], reverse=True)
-        print 'min :', min(rval, key=lambda x: x[3])
-        print'max :', max(rval, key=lambda x: x[3])
+        #print 'min :', min(rval, key=lambda x: x[3])
+        #print'max :', max(rval, key=lambda x: x[3])
     return rval
 
 

@@ -39,7 +39,9 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
     res = dummy_nms(res, probs[0])
     #res = nms_scale(res, sizes[0], strides[0])
 ######################################################
-    rois, scores = get_rois(res, models[0], enlarge_factor=0, overlap_ratio=overlap_ratio[0])
+    rois, scores = get_rois(res, models[0], enlarge_factor=0,
+                            overlap_ratio=overlap_ratio[0],
+                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
     slices = rois_to_slices(rois)
 
@@ -65,7 +67,9 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
 ######################################################
 
             local_rois, local_scores = get_rois(res_, models[i],
-                                      enlarge_factor=0.3, overlap_ratio=overlap_ratio[i])
+                                                enlarge_factor=0.3,
+                                                overlap_ratio=overlap_ratio[i],
+                                                remove_inclusion=(len(sizes) > i+1))
             local_rois = correct_rois(local_rois, crop_.shape)
 
             # Get the absolute coords of the new RoIs

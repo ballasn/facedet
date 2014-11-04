@@ -171,8 +171,8 @@ if __name__ == '__main__':
         sys.exit(2)
 
 
-    #mode = "fddb"
-    mode = "pascal"
+    mode = "fddb"
+    #mode = "pascal"
 
     model_file16 = sys.argv[1]
     model_file48 = sys.argv[2]
@@ -196,14 +196,16 @@ if __name__ == '__main__':
     model48.layers.pop()
 
 
-    #with open(model_file96, 'r') as m_f:
-    #    model96 = pkl.load(m_f)
+    with open(model_file96, 'r') as m_f:
+        model96 = pkl.load(m_f)
+
+    model96.layers.pop()
 
     # Compile functions
     x = T.tensor4('x')
     #predict16 = function([x], model16.fprop(x))
     predict48 = function([x], model48.fprop(x))
-    #predict96 = function([x], model96.fprop(x))
+    predict96 = function([x], model96.fprop(x))
 
 
     #models = [model16, model48]
@@ -225,6 +227,14 @@ if __name__ == '__main__':
     fprops = [predict48]
     sizes = [48]
     strides = [1]
+    base_size = max(sizes)
+    probs = [2]
+    overlap_ratio = [0.3]
+
+    models = [model96]
+    fprops = [predict96]
+    sizes = [96]
+    strides = [2]
     base_size = max(sizes)
     probs = [2]
     overlap_ratio = [0.3]

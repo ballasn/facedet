@@ -29,7 +29,7 @@ def IoM(a, b):
     return union_area / float(min_area)
 
 
-def remove_inclusions(n_z_elems, model, overlap_ratio):
+def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
     """
     Remove elements included in other elements from the list
     """
@@ -47,9 +47,9 @@ def remove_inclusions(n_z_elems, model, overlap_ratio):
         for j, f in enumerate(l):
             if f is None or j==i:
                 continue
-            if include(e, f):
+            if remove_inclusions and include(e, f):
                 l[j] = None
-            elif include(f, e):
+            elif remove_inclusions and include(f, e):
                 l[i] = None
             elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
                                            [f[0], f[2], f[1], f[3]]) > overlap_ratio:
@@ -62,7 +62,8 @@ def remove_inclusions(n_z_elems, model, overlap_ratio):
     return rval
 
 
-def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0):
+def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0,
+             remove_inclusion=True):
     """
     Return the coords of patches corresponding to
     non-zeros areas after nms execution
@@ -76,7 +77,8 @@ def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0):
     RETURNS :
     rois : a list of 2*2 np_arrays indicating areas of interests
     """
-    n_z_elems = remove_inclusions(n_z_elems, model, overlap_ratio)
+    n_z_elems = remove_inclusions(n_z_elems, model, overlap_ratio,
+                                  remove_inclusion)
     rois = []
     scores = []
     for [s, x, y, sco] in n_z_elems:
