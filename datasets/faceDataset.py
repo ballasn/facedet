@@ -86,6 +86,10 @@ class faceDataset(dataset.Dataset):
             else:
                 nb_train = int(np.ceil((1.0 - ratio) * self.negatives.shape[0]))
             self.negatives = np.array(self.negatives[-nb_train:, :])
+            if resize_neg and self.negatives.shape[0] > self.positives.shape[0]:
+                print "Resizing the negatives"
+                self.negatives = self.negatives[0:self.positives.shape[0], :]
+            print resize_neg
 
             print "Positives valid :", self.positives.shape
             print "Negatives valid :", self.negatives.shape
