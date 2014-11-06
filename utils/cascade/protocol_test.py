@@ -34,50 +34,45 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
 
     # Perform first level
     res = process_image(fprops[0], img, scales[0], sizes[0])
-######################################################
-    #res = fast_nms(res, sizes[0], strides[0], probs[0], overlap_ratio[0])
-    res = dummy_nms(res, probs[0])
-    #res = nms_scale(res, sizes[0], strides[0])
-######################################################
+    res = dummy_nms([res], probs[0])
     rois, scores = get_rois(res, models[0], enlarge_factor=0,
                             overlap_ratio=overlap_ratio[0],
-                            remove_inclusion=(len(sizes) > 1))
+                            remove_inclusion=False)
+#                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
     slices = rois_to_slices(rois)
 
-    for i in xrange(1, len(fprops)):
 
+    for i in xrange(1, len(fprops)):
         next_rois = []
         next_scores = []
-
+        res = []
         # For each RoI of the past level
         for j, sl in enumerate(slices):
             crop_ = img[sl]
             # Change the actual scales used
             # if crop is smaller than predict size
-            if crop_.shape[0] < sizes[i]:
-                actual_scales = [float(crop_.shape[0])/float(sizes[i])]
-            else:
-                actual_scales = scales[i]
-            res_ = process_image(fprops[i], crop_, actual_scales, sizes[i])
-######################################################
-            # Threshlod on the cumylated score like the Soft Cascade
-            #res_ = fast_nms(res_, sizes[i], strides[i], probs[i]-scores[j)
-            res_ = dummy_nms(res_, probs[i]-scores[j])
-######################################################
+            # if min(crop_.shape[0], crop_.shape[1]) < sizes[i]:
+            #     actual_scales = [float(sizes[i])/float(min(crop_.shape[0], crop_.shape[1]))]
+            # else:
+            #     actual_scales = scales[i]
+            res.append(process_image(fprops[i], crop_, scales[i], sizes[i]))
 
-            local_rois, local_scores = get_rois(res_, models[i],
-                                                enlarge_factor=0.3,
-                                                overlap_ratio=overlap_ratio[i],
-                                                remove_inclusion=(len(sizes) > i+1))
-            local_rois = correct_rois(local_rois, crop_.shape)
 
-            # Get the absolute coords of the new RoIs
-            # The score is now the sum of
-            # the local score and the score of the RoIs
-            for r, s in zip(local_rois, local_scores):
-                next_rois.append(r + rois[j][0, :])
-                next_scores.append(s + scores[j])
+        res = dummy_nms(res, probs[i]-scores[j])
+        local_rois, local_scores = get_rois(res, models[i],
+                                            enlarge_factor=0.1,
+                                            overlap_ratio=overlap_ratio[i],
+                                            remove_inclusion=False)
+#(len(sizes) > i+1))
+
+        local_rois = correct_rois(local_rois, crop_.shape)
+        # Get the absolute coords of the new RoIs
+        # The score is now the sum of
+        # the local score and the score of the RoIs
+        for r, s in zip(local_rois, local_scores):
+            next_rois.append(r + rois[j][0, :])
+            next_scores.append(s + scores[j])
         rois = next_rois
         scores = next_scores
         # Get the slices from the absolute values

@@ -185,20 +185,18 @@ if __name__ == '__main__':
 
 
     nb_fold = 1
-    out_dir = 'results/output5/'
+    out_dir = 'results/output96/'
 
     #with open(model_file16, 'r') as m_f:
     #    model16 = pkl.load(m_f)
 
     with open(model_file48, 'r') as m_f:
         model48 = pkl.load(m_f)
-
     model48.layers.pop()
 
 
     with open(model_file96, 'r') as m_f:
         model96 = pkl.load(m_f)
-
     model96.layers.pop()
 
     # Compile functions
@@ -228,26 +226,42 @@ if __name__ == '__main__':
     sizes = [48]
     strides = [1]
     base_size = max(sizes)
-    probs = [2]
+    probs = [-1]
     overlap_ratio = [0.3]
 
     models = [model96]
     fprops = [predict96]
     sizes = [96]
-    strides = [2]
+    strides = [1]
     base_size = max(sizes)
-    probs = [2]
+    probs = [-1]
     overlap_ratio = [0.3]
 
+
+    models = [model48, model96]
+    fprops = [predict48, predict96]
+    sizes = [48, 96]
+    strides = [1, 1]
+    base_size = max(sizes)
+    probs = [-1, 0]
+    overlap_ratio = [0.5, 0.3]
+
+
     ratio = sqrt(2)
-    #global_scales = [(1.0/ratio)**e for e in range(2, 11)]
+    global_scales = [(1.0/ratio)**e for e in range(0, 11)]
     global_scales2 = [(1.0/ratio)**e for e in range(0, 11)]
-    local_scales = [global_scales2]
-    #local_scales[0].append(1.2)
-    #local_scales[-1].append(1.2)
-    #local_scales[-1].append(1.4)
-    #local_scales[-1].append(1.6)
+    local_scales = [global_scales, global_scales2]
+    #local_scales = [global_scales2]
+    local_scales[0].append(1.2)
+    local_scales[0].append(1.4)
+    local_scales[-1].append(1.2)
+    local_scales[-1].append(1.4)
+    local_scales[-1].append(1.6)
     #local_scales[-1].append(1.8)
+    #local_scales[-1].append(2.0)
+    #local_scales[-1].append(2.2)
+    #local_scales[-1].append(2.4)
+    #local_scales[-1].append(2.8)
     print 'local_scales', local_scales
 
     # Check that the smallest patch is larger than 20 px
