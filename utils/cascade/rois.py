@@ -41,6 +41,7 @@ def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
         a = np.array([x0/s, y0/s])
         b = np.array([(x0 + x1)/s, (y0+y1)/s])
         l.append([a[0], a[1], b[0], b[1], i])
+
     for i, e in enumerate(l):
         if e is None:
             continue
@@ -62,7 +63,10 @@ def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
     return rval
 
 
-def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0,
+def get_rois(rois, model,
+             prev_rois=None,
+             prev_score=None,
+             enlarge_factor=0.0, overlap_ratio=1.0,
              remove_inclusion=True):
     """
     Return the coords of patches corresponding to
@@ -77,19 +81,48 @@ def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0,
     RETURNS :
     rois : a list of 2*2 np_arrays indicating areas of interests
     """
-    n_z_elems = remove_inclusions(n_z_elems, model, overlap_ratio,
-                                  remove_inclusion)
-    rois = []
-    scores = []
-    for [s, x, y, sco, sli_idx] in n_z_elems:
-        scores.append(sco)
-        # Get coords on the zoomed image
+
+
+    ### Correct coordinate based on prev_rois positions
+    l = []
+    for i, [s, x, y, sco, parent_idx] in enumerate(rois):
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
-        # Unzoom to get original coords
+        if (prev_rois is not None):
+            x0  +=  prev_rois[parent_idx][0, 0]
+            y0  +=  prev_rois[parent_idx][0, 1]
+        if (prev_score is not None):
+            sco += prev_score[parent_idx]
         a = np.array([x0/s, y0/s])
         b = np.array([(x0 + x1)/s, (y0+y1)/s])
-        rois.append(np.vstack((a, b)))
-    return rois, scores
+        l.append([a[0], a[1], b[0], b[1], sco])
+
+    ### Perform inclusion/non-maximum suppersion
+    for i, e in enumerate(l):
+        if e is None:
+            continue
+        for j, f in enumerate(l):
+            if f is None or j==i:
+                continue
+            if remove_inclusions and include(e, f):
+                l[j] = None
+            elif remove_inclusions and include(f, e):
+                l[i] = None
+            elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
+                                           [f[0], f[2], f[1], f[3]]) > overlap_ratio:
+                l[j] = None
+    rval = []
+
+    ### Return the non nul elements
+    new_rois = []
+    new_scores = []
+    for i, e in enumerate(l):
+        if e is None:
+            continue
+        new_rois.append(np.vstack([np.array([e[0], e[1]]),
+                                  np.array([e[2], e[3]])]))
+        new_scores.append(e[4])
+
+    return new_rois, new_scores
 
 
 def rois_to_slices(rois):
