@@ -36,7 +36,7 @@ def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
     ### FIXME n_z_elems must be sorted according to prob
 
     l = []
-    for i, [s, x, y, sco] in enumerate(n_z_elems):
+    for i, [s, x, y, sco, sli_idx] in enumerate(n_z_elems):
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
         a = np.array([x0/s, y0/s])
         b = np.array([(x0 + x1)/s, (y0+y1)/s])
@@ -81,7 +81,7 @@ def get_rois(n_z_elems, model, enlarge_factor=0.0, overlap_ratio=1.0,
                                   remove_inclusion)
     rois = []
     scores = []
-    for [s, x, y, sco] in n_z_elems:
+    for [s, x, y, sco, sli_idx] in n_z_elems:
         scores.append(sco)
         # Get coords on the zoomed image
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
