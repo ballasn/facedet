@@ -44,8 +44,8 @@ def cascade(img, models, fprops,
                             remove_inclusion=False)
     #                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
-
     slices = rois_to_slices(rois)
+
 
 
     for i in xrange(1, len(fprops)):
@@ -59,7 +59,7 @@ def cascade(img, models, fprops,
                                      scales[i], sizes[i]))
 
         # Filter ouput maps < p
-        res = dummy_nms(res, probs[i]-scores[j])
+        res = dummy_nms(res, probs[i]-scores[j], sl)
         # Get Rois from output maps
         next_rois, next_scores = get_rois(res, models[i],
                                           prev_rois=rois,

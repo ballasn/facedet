@@ -63,6 +63,7 @@ def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
     return rval
 
 
+
 def get_rois(rois, model,
              prev_rois=None,
              prev_score=None,
@@ -87,13 +88,13 @@ def get_rois(rois, model,
     l = []
     for i, [s, x, y, sco, parent_idx] in enumerate(rois):
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
+        a = np.array([x0/s, y0/s])
+        b = np.array([(x0 + x1)/s, (y0+y1)/s])
         if (prev_rois is not None):
             x0  +=  prev_rois[parent_idx][0, 0]
             y0  +=  prev_rois[parent_idx][0, 1]
         if (prev_score is not None):
             sco += prev_score[parent_idx]
-        a = np.array([x0/s, y0/s])
-        b = np.array([(x0 + x1)/s, (y0+y1)/s])
         l.append([a[0], a[1], b[0], b[1], sco])
 
     ### Perform inclusion/non-maximum suppersion
@@ -103,9 +104,9 @@ def get_rois(rois, model,
         for j, f in enumerate(l):
             if f is None or j==i:
                 continue
-            if remove_inclusions and include(e, f):
+            if remove_inclusion and include(e, f):
                 l[j] = None
-            elif remove_inclusions and include(f, e):
+            elif remove_inclusion and include(f, e):
                 l[i] = None
             elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
                                            [f[0], f[2], f[1], f[3]]) > overlap_ratio:
