@@ -40,6 +40,9 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
                             remove_inclusion=False)
 #                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
+
+    print "res1: ", len(res)
+    print "local_rois1: ", len(rois)
     slices = rois_to_slices(rois)
 
 
@@ -59,20 +62,32 @@ def cascade(img, models, fprops, scales, sizes, strides, overlap_ratio, probs=No
             res.append(process_image(fprops[i], crop_, scales[i], sizes[i]))
 
 
+        # Filter detection < p
         res = dummy_nms(res, probs[i]-scores[j])
+        # Get the absolute coords of the new RoIs
+        # The score is now the sum of
+        # the local score and the score of the RoIs
+
+        #res_ = []
+        #for k in xrange(len(res)):
+        #    for l in xrange(len(res[k])):
+        #        res_.append(res[k][l])
+        #res  = res_
         local_rois, local_scores = get_rois(res, models[i],
                                             enlarge_factor=0.1,
                                             overlap_ratio=overlap_ratio[i],
                                             remove_inclusion=False)
-#(len(sizes) > i+1))
+                                            #(len(sizes) > i+1))
 
-        local_rois = correct_rois(local_rois, crop_.shape)
-        # Get the absolute coords of the new RoIs
-        # The score is now the sum of
-        # the local score and the score of the RoIs
+        print "res: ", len(res)
+        print "local_rois: ", len(local_rois)
+        #local_rois = correct_rois(local_rois, crop_.shape)
+        cur = 0
         for r, s in zip(local_rois, local_scores):
-            next_rois.append(r + rois[j][0, :])
-            next_scores.append(s + scores[j])
+            next_rois.append(r + rois[res[cur][4]][0, :])
+            next_scores.append(s + scores[res[cur][4]])
+            cur += 1
+
         rois = next_rois
         scores = next_scores
         # Get the slices from the absolute values
