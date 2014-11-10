@@ -83,21 +83,19 @@ def get_rois(rois, model,
     rois : a list of 2*2 np_arrays indicating areas of interests
     """
 
-
-    ### Correct coordinate based on prev_rois positions
+    # Correct coordinate based on prev_rois positions
     l = []
     for i, [s, x, y, sco, parent_idx] in enumerate(rois):
         [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
         a = np.array([x0/s, y0/s])
         b = np.array([(x0 + x1)/s, (y0+y1)/s])
-        if (prev_rois is not None):
-            x0  +=  prev_rois[parent_idx][0, 0]
-            y0  +=  prev_rois[parent_idx][0, 1]
-        if (prev_score is not None):
+        if (prev_rois is not None and prev_score is not None):
+            x0 += prev_rois[parent_idx][0, 0]
+            y0 += prev_rois[parent_idx][0, 1]
             sco += prev_score[parent_idx]
         l.append([a[0], a[1], b[0], b[1], sco])
 
-    ### Perform inclusion/non-maximum suppersion
+    # Perform inclusion/non-maximum suppersion
     for i, e in enumerate(l):
         if e is None:
             continue

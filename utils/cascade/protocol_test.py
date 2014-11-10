@@ -37,11 +37,11 @@ def cascade(img, models, fprops,
         assert len(strides) == len(probs)
     # Perform first level
     res = process_image(fprops[0], img, scales[0], sizes[0])
-    res = dummy_nms([res], probs[0])
+    res = dummy_nms([res], probs[0], [0], [0])
     rois, scores = get_rois(res, models[0],
                             enlarge_factor=0,
                             overlap_ratio=overlap_ratio[0],
-                            remove_inclusion=False)
+                            remove_inclusion=True)
     #                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
     slices = rois_to_slices(rois)
@@ -52,14 +52,16 @@ def cascade(img, models, fprops,
         next_rois = []
         next_scores = []
         res = []
+        parent_idx = []
         # For each RoI of the past level
         for j, sl in enumerate(slices):
             crop_ = img[sl]
             res.append(process_image(fprops[i], crop_,
                                      scales[i], sizes[i]))
+            parent_idx.append(j)
 
         # Filter ouput maps < p
-        res = dummy_nms(res, probs[i]-scores[j], sl)
+        res = dummy_nms(res, probs[i], parent_idx, scores)
         # Get Rois from output maps
         next_rois, next_scores = get_rois(res, models[i],
                                           prev_rois=rois,
