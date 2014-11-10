@@ -11,15 +11,19 @@ def process_image(fprop_func, image, scales, pred_size):
     image_file : path to the image_file
     scales : list of scales
     """
-    map_ = {}
-    minibatch = {}
+
+    rval = {}
     for s in scales:
+        #print s, pred_size
+        #print s
         img_ = rescale(image, s, pred_size)
-        minibatch[s] = img_
+        rval[s] = apply_fprop(fprop_func, img_)
+       # cv2.imshow('img_' + str(s) , img_)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    #print rval
 
-    map_ = apply_fprop(fprop_func, minibatch)
-
-    return map_
+    return rval
 
 
 def apply_fprop(fprop_func, image):
@@ -29,12 +33,6 @@ def apply_fprop(fprop_func, image):
     fprop_func : a compiled fprop function
     image : a numpy array representing an image
     """
-    if type(image) == dict:
-        rval = {}
-        for s in image:
-            rval[s] = apply_fprop(fprop_func, image[s])
-        return rval
-
     # Add a minibatch dim to get C01B format
     #print 'before reshape', image.shape,
     image = np.reshape(image, list(image.shape)+[1])
@@ -42,6 +40,8 @@ def apply_fprop(fprop_func, image):
     image = np.transpose(image, (2, 0, 1, 3))
     #print 'after transpose', image.shape,
     image = np.transpose(image, (3, 0, 1, 2))
+    #v cprint image.shape
+    #print image.shape
     rval = fprop_func(image)
 
     #rval = np.transpose(rval, (0, 2, 3, 1))
@@ -53,7 +53,7 @@ def apply_fprop(fprop_func, image):
     # BP01 : Softmax
     return rval[0, 0, :, :]
     # 01BP : Sigmoid
-    return rval[:, :, 0, 0]
+    #return rval[:, :, 0, 0]
 
 
 def rescale(image, scale, pred_size):
@@ -64,17 +64,14 @@ def rescale(image, scale, pred_size):
     scale : the rescaled image has size
             scale * image_size
     """
-    if scale == 1:
+    if scale == 1 and min(image.shape[0], image.shape[1]) >= pred_size:
         return image
-    sh = image.shape
-    # WARNING : resize needs to receive swapped sizes to perform as we would
-    # imagine
+    # WARNING : resize needs to receive swapped sizes
     resized_image = cv2.resize(image,
-                               (max(int(sh[1] * scale), pred_size),
-                                max(int(sh[0] * scale), pred_size)),
+                               (max(int(image.shape[1] * scale), pred_size),
+                                max(int(image.shape[0] * scale), pred_size)),
 
                                interpolation=cv2.INTER_CUBIC)
-
     resized_array = np.asarray(resized_image, dtype=image.dtype)
 
     return resized_array

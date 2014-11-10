@@ -229,13 +229,13 @@ if __name__ == '__main__':
     probs = [-1]
     overlap_ratio = [0.3]
 
-    models = [model96]
-    fprops = [predict96]
-    sizes = [96]
-    strides = [1]
-    base_size = max(sizes)
-    probs = [-1]
-    overlap_ratio = [0.3]
+    #models = [model96]
+    #fprops = [predict96]
+    #sizes = [96]
+    #strides = [1]
+    #base_size = max(sizes)
+    #probs = [-1]
+    #overlap_ratio = [0.3]
 
 
     models = [model48, model96]
@@ -243,20 +243,21 @@ if __name__ == '__main__':
     sizes = [48, 96]
     strides = [1, 1]
     base_size = max(sizes)
-    probs = [-1, 0]
-    overlap_ratio = [0.5, 0.3]
+    probs = [-1, -2]
+    overlap_ratio = [0.3, 0.3]
 
 
     ratio = sqrt(2)
     global_scales = [(1.0/ratio)**e for e in range(0, 11)]
-    global_scales2 = [(1.0/ratio)**e for e in range(0, 11)]
+    global_scales2 = [(1.0/ratio)**e for e in range(0, 3)]
     local_scales = [global_scales, global_scales2]
+    #local_scales = [global_scales]
     #local_scales = [global_scales2]
     local_scales[0].append(1.2)
     local_scales[0].append(1.4)
     local_scales[-1].append(1.2)
     local_scales[-1].append(1.4)
-    local_scales[-1].append(1.6)
+    #local_scales[-1].append(1.6)
     #local_scales[-1].append(1.8)
     #local_scales[-1].append(2.0)
     #local_scales[-1].append(2.2)
