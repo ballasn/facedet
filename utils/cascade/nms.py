@@ -231,7 +231,7 @@ def fast_nms(maps, size, stride, prob, overlap_ratio):
     return rval
 
 
-def dummy_nms(list_maps, prob):
+def dummy_nms(list_maps, prob, slice_idx = 0):
     """
     Keep all a elements > probs
     ---------------------------------------------------------
@@ -239,13 +239,17 @@ def dummy_nms(list_maps, prob):
     size : size of a patch
     stride : stride between patches
     """
+    print slice_idx
     rval = []
     for maps in list_maps:
         for s in maps:
             # Apply the filter based on proba
             maps[s] = maps[s] * (maps[s] > prob)
             n_z = np.transpose(np.nonzero(maps[s]))
-            rval.extend([[s, n_z[e, 0], n_z[e, 1], maps[s][n_z[e, 0], n_z[e, 1]]]
+            rval.extend([[s,
+                          n_z[e, 0], n_z[e, 1],
+                          maps[s][n_z[e, 0], n_z[e, 1]],
+                          slice_idx]
                          for e in range(len(n_z))])
             #print 'nb of nonzero patches :', len(rval)
     if rval != []:
