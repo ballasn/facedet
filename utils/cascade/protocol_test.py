@@ -57,7 +57,8 @@ def cascade(img, models, fprops,
             ## Compute the scale so the new region is equal to one
             crop_ = img[sl]
             s = float(sizes[i]) / crop_.shape[0]
-            new_scale = [s*e for e in scales[i]]
+            new_scale = [s*e for e in scales[i] if s*e*min(crop_.shape[0:2]) > sizes[i]]
+
             res.append(process_image(fprops[i], crop_,
                                      new_scale, sizes[i]))
             parent_idx.append(j)
