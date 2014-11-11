@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 
-def process_image(fprop_func, image, scales, pred_size):
+def process_image(fprop_func, image, scales, pred_size, resize = False):
     """
     Runs the fprop on different scales of an image
     returns a list of maps indexed like the scales
@@ -15,10 +15,13 @@ def process_image(fprop_func, image, scales, pred_size):
     rval = {}
     for s in scales:
         #print s, pred_size
-        #print s
-        img_ = rescale(image, s, pred_size)
+
+        if (resize):
+            img_ = cv2.resize(image, (pred_size, pred_size))
+        else:
+            img_ = rescale(image, s, pred_size)
         rval[s] = apply_fprop(fprop_func, img_)
-       # cv2.imshow('img_' + str(s) , img_)
+    #    cv2.imshow('img_' + str(s) , img_)
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
     #print rval

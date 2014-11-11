@@ -4,6 +4,7 @@ from models.layer.convVariable import ConvElemwise as Cv_new_path
 from utils.layer.convVariable import ConvElemwise as Cv_old_path
 from models.layer.convVariable import ConvElemwise as Cv_new_path
 from models.layer.corrVariable import CorrMMElemwise as Corr_new_path
+from models.layer.cudnnVariable import CudNNElemwise as Cv_cudnn
 
 
 def get_input_coords(i, j, model):
@@ -18,7 +19,7 @@ def get_input_coords(i, j, model):
     x1 = 1
     y1 = 1
     for l in model.layers[::-1]:
-        if isinstance(l, Cv_new_path) or isinstance(l, Cv_old_path) or isinstance(l, Corr_new_path):
+        if isinstance(l, Cv_new_path) or isinstance(l, Cv_old_path) or isinstance(l, Corr_new_path) or isinstance(l, Cv_cudnn):
             if l.pool_type is not None:
                 x0 *= l.pool_stride[0]
                 y0 *= l.pool_stride[0]

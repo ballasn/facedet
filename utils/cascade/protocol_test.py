@@ -41,11 +41,10 @@ def cascade(img, models, fprops,
     rois, scores = get_rois(res, models[0],
                             enlarge_factor=0,
                             overlap_ratio=overlap_ratio[0],
-                            remove_inclusion=True)
+                            remove_inclusion=False)
     #                            remove_inclusion=(len(sizes) > 1))
     rois = correct_rois(rois, img.shape)
     slices = rois_to_slices(rois)
-
 
 
     for i in xrange(1, len(fprops)):
@@ -55,9 +54,12 @@ def cascade(img, models, fprops,
         parent_idx = []
         # For each RoI of the past level
         for j, sl in enumerate(slices):
+            ## Compute the scale so the new region is equal to one
             crop_ = img[sl]
+            s = float(sizes[i]) / crop_.shape[0]
+            new_scale = [s*e for e in scales[i]]
             res.append(process_image(fprops[i], crop_,
-                                     scales[i], sizes[i]))
+                                     new_scale, sizes[i]))
             parent_idx.append(j)
 
         # Filter ouput maps < p

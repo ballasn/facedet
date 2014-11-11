@@ -66,7 +66,7 @@ def dummy_nms(list_maps, prob, parent_idx, scores):# slice_idx=0):
             rval.extend([[s,
                           n_z[e, 0], n_z[e, 1],
                           maps[s][n_z[e, 0], n_z[e, 1]],
-                              slice_idx]
+                          slice_idx]
                          for e in range(len(n_z))])
             #print 'nb of nonzero patches :', len(rval)
     if rval != []:

@@ -86,14 +86,16 @@ def get_rois(rois, model,
     # Correct coordinate based on prev_rois positions
     l = []
     for i, [s, x, y, sco, parent_idx] in enumerate(rois):
-        [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
-        a = np.array([x0/s, y0/s])
-        b = np.array([(x0 + x1)/s, (y0+y1)/s])
+        [[x0, y0], [w, h]] = get_input_coords(x, y, model)
+        x0 = x0 / s
+        y0 = y0 / s
+        w = w / s
+        h = h / s
         if (prev_rois is not None and prev_score is not None):
             x0 += prev_rois[parent_idx][0, 0]
             y0 += prev_rois[parent_idx][0, 1]
             sco += prev_score[parent_idx]
-        l.append([a[0], a[1], b[0], b[1], sco])
+        l.append([x0, y0, x0+w, y0+h, sco])
 
     # Perform inclusion/non-maximum suppersion
     for i, e in enumerate(l):
@@ -118,7 +120,7 @@ def get_rois(rois, model,
         if e is None:
             continue
         new_rois.append(np.vstack([np.array([e[0], e[1]]),
-                                  np.array([e[2], e[3]])]))
+                                   np.array([e[2], e[3]])]))
         new_scores.append(e[4])
 
     return new_rois, new_scores

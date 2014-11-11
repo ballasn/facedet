@@ -15,8 +15,10 @@ from utils.cascade.protocol_test import cascade
 
 def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
                  nb_fold, out_dir,
-                 fold_dir2='/u/chassang/Projects/FaceDetection/FDDB_files_lists',
+                 #fold_dir2='/u/chassang/Projects/FaceDetection/FDDB_files_lists',
+                 #fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/",
                  fold_dir="/data/lisa/data/faces/FDDB/FDDB-folds/",
+                 #fold_dir="/u/ballasn/project/facedet/facedet/utils/cascade/fold",
                  img_dir="/data/lisa/data/faces/FDDB/",
                  mode='rect',
                  max_det=60):
@@ -24,6 +26,7 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
     Apply the cascade of fprops to the folds
     Write the results at <out_dir>/fold-<nb_fold>-out.txt
     """
+
 
     # define file indicating list of files
     if nb_fold < 10:
@@ -64,8 +67,10 @@ def process_fold(models, fprops, scales, sizes, strides, probs, overlap_ratio,
     # Writing the results now
 
     output_fold = join(out_dir, "fold-"+nb_s+"-out.txt")
+    #print output_fold
     with open(output_fold, 'wb') as output:
         for i, f in enumerate(files):
+            #print "here:", output_fold
             # We need to format names to fit FDDB test
             # We remove /data/lisa/data/faces/FDDB and the extension
             n = f.split("/")[6:]
@@ -187,8 +192,8 @@ if __name__ == '__main__':
     nb_fold = 1
     out_dir = 'results/output96/'
 
-    #with open(model_file16, 'r') as m_f:
-    #    model16 = pkl.load(m_f)
+    with open(model_file16, 'r') as m_f:
+        model16 = pkl.load(m_f)
 
     with open(model_file48, 'r') as m_f:
         model48 = pkl.load(m_f)
@@ -201,7 +206,7 @@ if __name__ == '__main__':
 
     # Compile functions
     x = T.tensor4('x')
-    #predict16 = function([x], model16.fprop(x))
+    predict16 = function([x], model16.fprop(x))
     predict48 = function([x], model48.fprop(x))
     predict96 = function([x], model96.fprop(x))
 
@@ -220,22 +225,30 @@ if __name__ == '__main__':
     #local_scales = [global_scales, global_scales2]
     # print 'local_scales', local_scales
 
-
-    models = [model48]
-    fprops = [predict48]
-    sizes = [48]
-    strides = [1]
-    base_size = max(sizes)
-    probs = [-1]
-    overlap_ratio = [0.3]
-
-    #models = [model96]
-    #fprops = [predict96]
-    #sizes = [96]
+    #models = [model16]
+    #fprops = [predict16]
+    #sizes = [48]
     #strides = [1]
     #base_size = max(sizes)
     #probs = [-1]
     #overlap_ratio = [0.3]
+
+
+    #models = [model48]
+    #fprops = [predict48]
+    #sizes = [48]
+    #strides = [1]
+    #base_size = max(sizes)
+    #probs = [-1]
+    #overlap_ratio = [0.3]
+
+    models = [model96]
+    fprops = [predict96]
+    sizes = [96]
+    strides = [1]
+    base_size = max(sizes)
+    probs = [-1]
+    overlap_ratio = [0.3]
 
 
     models = [model48, model96]
@@ -243,26 +256,47 @@ if __name__ == '__main__':
     sizes = [48, 96]
     strides = [1, 1]
     base_size = max(sizes)
-    probs = [-1, -2]
-    overlap_ratio = [0.3, 0.3]
+    probs = [-2, -2]
+    overlap_ratio = [0.5, 0.3]
+
+    #models = [model48, model48]
+    #fprops = [predict48, predict48]
+    #sizes = [48, 48]
+    #strides = [1, 1]
+    #base_size = max(sizes)
+    #probs = [-1, -1]
+    #overlap_ratio = [0.5, 0.3]
+
+
 
 
     ratio = sqrt(2)
     global_scales = [(1.0/ratio)**e for e in range(0, 11)]
-    global_scales2 = [(1.0/ratio)**e for e in range(0, 3)]
-    local_scales = [global_scales, global_scales2]
-    #local_scales = [global_scales]
+    global_scales2 = [(1.0/ratio)**e for e in range(0, 1)]#11)]
+    global_scales3 = [(1.0/ratio)**e for e in range(0, 1)]
+
+    print len(models)
+    if len(models) > 1:
+        local_scales = [global_scales, global_scales2]
+    else:
+        local_scales = [global_scales]
     #local_scales = [global_scales2]
     local_scales[0].append(1.2)
     local_scales[0].append(1.4)
-    local_scales[-1].append(1.2)
-    local_scales[-1].append(1.4)
+    local_scales[0].append(1.6)
+    local_scales[0].append(1.8)
+    local_scales[0].append(2.0)
+    local_scales[0].append(2.2)
+    #local_scales[-1].append(1.2)
+    #local_scales[-1].append(1.4)
     #local_scales[-1].append(1.6)
     #local_scales[-1].append(1.8)
     #local_scales[-1].append(2.0)
     #local_scales[-1].append(2.2)
     #local_scales[-1].append(2.4)
     #local_scales[-1].append(2.8)
+    #local_scales[-1].append(3.0)
+    #local_scales[-1].append(3.2)
     print 'local_scales', local_scales
 
     # Check that the smallest patch is larger than 20 px
@@ -286,6 +320,7 @@ if __name__ == '__main__':
             t = time()
             print ""
             print t-t0, 'seconds for the fold'
+        t = time()
         print t-t_orig, 'seconds for FDDB'
     else:
         process_pascal(models, fprops, local_scales, sizes, strides, probs,
