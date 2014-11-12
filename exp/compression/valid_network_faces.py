@@ -9,9 +9,8 @@ import cPickle as pkl
 from math import sqrt
 from datasets.faceDataset import faceDataset, FaceIterator
 import numpy as np
-
-
-
+from models.layer.SigmoidBC01Extended import SigmoidExtended
+from pylearn2.models.mlp import Sigmoid
   
 def compute_test_accuracy(model, iterator, nb):
     test_acc = []
@@ -23,8 +22,14 @@ def compute_test_accuracy(model, iterator, nb):
     
     y_model = model.fprop(Xb)
     label = T.argmax(yb,axis=1)
-    prediction = T.argmax(y_model,axis=1)
-    acc_model = 1.-T.neq(label , prediction.flatten(ndim=1)).mean()
+    
+    if isinstance(model.layers[-1], SigmoidExtended) or isinstance(model.layers[-1], Sigmoid):
+      prediction = T.gt(y_model, 0.5)
+      prediction = prediction.dimshuffle(2,3,0,1)
+      acc_model = 1. - T.neq(label, prediction).mean()      
+    else:
+      prediction = T.argmax(y_model,axis=1)
+      acc_model = 1.-T.neq(label , prediction.flatten(ndim=1)).mean()
     
     batch_acc = function([Xb,yb],[acc_model])
     
@@ -35,6 +40,7 @@ def compute_test_accuracy(model, iterator, nb):
     for item in iterator:
         x_arg, y_arg = item
         test_acc.append(batch_acc(x_arg, y_arg)[0])
+        
     return sum(test_acc) / float(len(test_acc))
 
     
@@ -58,6 +64,7 @@ if __name__ == '__main__':
 
   # Load dataset
   src = student.monitor._datasets[1]
+  # src = student.monitor._datasets[index('valid')]
   valid = yaml_parse.load(src)
 
   

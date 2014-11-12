@@ -46,8 +46,12 @@ def main(argv):
   pretrained_model = pkl.load(fo)
   fo.close()
   
-  student.model.layers[0:load_layer+1] = pretrained_model.layers[0:load_layer+1]  
   
+  #print student.model.layers[-2].irange
+  student.model.layers[0:load_layer+1] = pretrained_model.layers[0:load_layer+1]  
+  #print student.model.layers[-2].irange
+  #exit(1)
+
   student.save_path = student.extensions[0].save_path[0:-4] + "_hint" + str(load_layer) + "_softmax.pkl"
   student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
 
