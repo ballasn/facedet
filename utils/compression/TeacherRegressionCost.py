@@ -167,6 +167,7 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         
 	# Compute cost
         cost = self.wtarget*cost_wrt_y + self.wteach*cost_wrt_teacher
+        #cost = self.wteach*cost_wrt_teacher
         
         return T.mean(cost)
         
