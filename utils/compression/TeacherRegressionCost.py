@@ -213,6 +213,8 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
         if value_cost_wrt_teacher is not None:
 	   name = 'cost_wrt_teacher'
 	   rval[name] = self.wteach*T.mean(value_cost_wrt_teacher)
+	   
+	rval['wteach'] = self.wteach
 	   	
         return rval        
 
