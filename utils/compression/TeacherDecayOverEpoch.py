@@ -90,3 +90,4 @@ class TeacherDecayOverEpoch(TrainExtension):
             new_wteach = self._init_wteach
         assert new_wteach > 0
         return new_wteach
+        

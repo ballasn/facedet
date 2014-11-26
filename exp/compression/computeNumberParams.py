@@ -6,9 +6,9 @@ from pylearn2.config import yaml_parse
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.models.mlp import Softmax
 
-def numberMult(model):
+def numberParams(model):
   
-  mult = 0
+  params = 0
   
   previous_output = model.model.input_space.num_channels
   
@@ -16,20 +16,24 @@ def numberMult(model):
     print i
     
     if isinstance(model.model.layers[i], MaxoutConvC01B):
-      detector = model.model.layers[i].detector_space.shape[0]*model.model.layers[i].detector_space.shape[1]
       kernel = model.model.layers[i].kernel_shape[0]*model.model.layers[i].kernel_shape[1]
       
-      mult = mult + detector*kernel*previous_output*model.model.layers[i].output_space.num_channels
+      params = params + kernel*previous_output*model.model.layers[i].output_space.num_channels
       previous_output = model.model.layers[i].output_space.num_channels
     elif isinstance(model.model.layers[i], Maxout):
       input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
-      mult = mult + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
     elif isinstance(model.model.layers[i], Softmax):
-      mult = mult + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
+      input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
+      params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim     
+      #params = params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     else:
       print 'error'
+      
+    import pdb
+    pdb.set_trace()
           
-  return mult
+  return params
       
 def main(argv):
   
@@ -44,9 +48,9 @@ def main(argv):
   with open(model_yaml, "r") as sty:
     model = yaml_parse.load(sty)
         
-  result = numberMult(model)
+  result = numberParams(model)
     
-  print 'Number of multiplications is %is' % (result)
+  print 'Number of parameters is %i' % (result)
 
   
 if __name__ == "__main__":
