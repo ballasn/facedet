@@ -196,8 +196,8 @@ def main(argv):
   else:
     n_hints = 0
        
-  
-  if load_layer <= student_layers[-2]:
+ 
+  if len(student_layers) > 1 and (load_layer <= student_layers[-2]):
     # Load pretrained student network
     fo = open(student.extensions[0].save_path[0:-4] + "_hintlayer" + str(load_layer) + "_best.pkl", 'r')
     pretrained_model = pkl.load(fo)
@@ -253,13 +253,13 @@ def main(argv):
     print 'Finetuning student network'
 	
     # Remove previous monitoring to be able to finetune the student network
-    assert hasattr(student.model,'monitor')
-    old_monitor = student.model.monitor
-    setattr(student.model, 'lastlayer_monitor', old_monitor)
-    del student.model.monitor
+    #assert hasattr(student.model,'monitor')
+    #old_monitor = student.model.monitor
+    #setattr(student.model, 'lastlayer_monitor', old_monitor)
+    #del student.model.monitor
     
     # Change cost
-    student.algorithm.cost = MethodCost(method='cost_from_X')
+    #student.algorithm.cost = MethodCost(method='cost_from_X')
 
     student.save_path = student.extensions[0].save_path[0:-4] + "_finetuned.pkl"
     student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
