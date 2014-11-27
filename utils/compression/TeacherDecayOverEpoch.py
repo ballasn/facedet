@@ -9,6 +9,8 @@ from theano import config
 from pylearn2.monitor import Monitor
 from pylearn2.train_extensions import TrainExtension
 from pylearn2.utils import py_integer_types, py_float_types
+from pylearn2.utils import sharedX
+
 
 
 class TeacherDecayOverEpoch(TrainExtension):
@@ -69,12 +71,12 @@ class TeacherDecayOverEpoch(TrainExtension):
     def _apply_wteach(self, algorithm): 
         """Updates the teacher weight on algorithm based on the epochs elapsed."""
         if not self._initialized:
-            self._init_wteach = algorithm.cost.wteach
+            self._init_wteach = algorithm.cost.wteach.get_value()
             self._step = ((self._init_wteach - self.final_wteach) /
                           (self.saturate - self.start + 1))
             self._initialized = True
-        algorithm.cost.wteach = np.cast[config.floatX](
-            self.current_wteach())
+        algorithm.cost.wteach.set_value(np.cast[config.floatX](
+            self.current_wteach()))
 
     def current_wteach(self):
         """

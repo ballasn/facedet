@@ -6,7 +6,9 @@ from models.layer.SoftmaxBC01Extended import SoftmaxExtended
 from models.layer.SigmoidBC01Extended import SigmoidExtended
 from pylearn2.models.mlp import Softmax, Sigmoid
 from pylearn2.expr.nnet import kl
-from time_op import PrintShape
+#from time_op import PrintShape
+from pylearn2.utils import sharedX
+
 
 
 class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
@@ -33,7 +35,8 @@ class TeacherRegressionCost(DefaultDataSpecsMixin, Cost):
 
       self.teacher = teacher
       self.wtarget = wtarget
-      self.wteach = wteach
+      #self.wteach = wteach
+      self.wteach = sharedX(wteach, 'wteach')
       self.hints = hints
       
     def cost_wrt_target(self, model, data):
