@@ -1,22 +1,25 @@
-from pylearn2.config import yaml_parse
-from pylearn2 import train
 import math
 import random
-import os
-import sys
-import getopt
-import numpy as np
-import cPickle as pkl
-from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
-from models.layer.convVariable import ConvElemwise
-from pylearn2.models.mlp import ConvElemwise as ConvElemwisePL2
-from models.layer.SoftmaxBC01Extended import SoftmaxExtended
-from models.layer.SigmoidBC01Extended import SigmoidExtended
+import os, sys, getopt
+
+#import numpy as np
+#import cPickle as pkl
+
+from pylearn2.config import yaml_parse
+from pylearn2 import train
 from pylearn2.models.mlp import Sigmoid, Tanh, Softmax, RectifiedLinear, ConvRectifiedLinear, RectifierConvNonlinearity, SigmoidConvNonlinearity, TanhConvNonlinearity
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
+from pylearn2.models.mlp import ConvElemwise as ConvElemwisePL2
 from pylearn2.space import VectorSpace
-from copy import deepcopy
 from pylearn2.costs.cost import MethodCost
+from pylearn2.train_extensions.best_params import MonitorBasedSaveBest
+
+from models.layer.convVariable import ConvElemwise
+from models.layer.SoftmaxBC01Extended import SoftmaxExtended
+from models.layer.SigmoidBC01Extended import SigmoidExtended
+from models.layer.cudnnVariable import CudNNElemwise
+from utils.compression.TeacherHintRegressionCost import TeacherHintRegressionCost
+from utils.compression.TeacherDecayOverEpoch import TeacherDecayOverEpoch
 
 def generateConvRegressor(teacher_hintlayer, student_layer):
   
@@ -76,11 +79,24 @@ def generateConvRegressor(teacher_hintlayer, student_layer):
 				  irange = irng,
 				  max_kernel_norm = mkn,
 				  tied_b = tb) 
+  elif isinstance(teacher_hintlayer, CudNNElemwise):
+    nonlin = teacher_hintlayer.nonlinearity
+    
+    #if isinstance(nonlin,TanhConvNonlinearity):
+    #  nonlin = SigmoidConvNonlinearity()
+      
+    hint_reg_layer = CudNNElemwise(output_channels = out_ch,
+				  kernel_shape = ks,
+				  layer_name = layer_name,
+				  nonlinearity = nonlin,
+				  irange = irng,
+				  max_kernel_norm = mkn,
+				  tied_b = tb) 
   else:
     raise AssertionError("Unknown layer type")
     
   return hint_reg_layer
-      
+     
 def generateNonConvRegressor(teacher_hintlayer, student_output_space):
   dim = teacher_hintlayer.output_space.get_total_dimension()
   layer_name = 'hint_regressor'
@@ -107,7 +123,7 @@ def generateNonConvRegressor(teacher_hintlayer, student_output_space):
   return hint_reg_layer
       
 def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_type):
-      
+
   # Check if we are in the softmax layers
   if isinstance(teacher.layers[hintlayer], Softmax) or isinstance(teacher.layers[hintlayer], SoftmaxExtended) or isinstance(teacher.layers[hintlayer], SigmoidExtended):
     assert (isinstance(student.model.layers[fromto_student[1]], Softmax) or isinstance(student.model.layers[fromto_student[1]], SoftmaxExtended) or isinstance(student.model.layers[fromto_student[1]], SigmoidExtended))
@@ -120,8 +136,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
       
       
     teacher_output_space = teacher.layers[hintlayer].get_output_space()
-    student_output_space = student.model.layers[fromto_student[1]].get_output_space()
-    
+    student_output_space = student.model.layers[fromto_student[1]].get_output_space()  
         
     # Add regressor to the student subnetwork if needed
     if regressor_type == 'conv':
@@ -148,13 +163,22 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
     student.model.monitor_targets = False
 
     # Change monitored channel
-    student.extensions[0].channel_name = "valid_cost_wrt_teacher"
     student.algorithm.termination_criterion.channel_name = "valid_cost_wrt_teacher"
     student.algorithm.termination_criterion._channel_name = "valid_cost_wrt_teacher"
-  
-  # Change save paths
-  student.save_path = student.extensions[0].save_path[0:-4] + "_hintlayer" + str(fromto_student[1]) + ".pkl"
-  student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
+    
+    # Change monitoring channel for best model    
+    for ext in range(len(student.extensions)):
+      if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+	student.extensions[ext].save_path = student.save_path[0:-4] + "_best.pkl"
+	student.extensions[ext].channel_name = "valid_cost_wrt_teacher"
+    
+  # Remove teacher decay over epoch if there is one
+  for ext in range(len(student.extensions)):
+    if isinstance(student.extensions[ext],TeacherDecayOverEpoch):
+      del student.extensions[ext]
+      
+  # Change save path
+  student.save_path = student.save_path[0:-4] + "_hintlayer" + str(fromto_student[1]) + ".pkl"
     
   # Freeze parameters of the layers trained in the last subnetworks
   #for i in range(0,fromto_student[0]):
@@ -179,7 +203,7 @@ def main(argv):
   # Load teacher network
   teacher = student.algorithm.cost.teacher
     
-  # Load hints
+  # Load hints and check whether they are within the proper range
   if student.algorithm.cost.hints is not None:
     student_layers = list(zip(*student.algorithm.cost.hints)[0]) 
     teacher_layers = list(zip(*student.algorithm.cost.hints)[1])
@@ -202,43 +226,47 @@ def main(argv):
     # Select student block of layers forming subnetwork
     bottom_layer = student_layers[i-1]+1 if i>0 else 0
     top_layer = student_layers[i]
+  
+    # Load auxiliary copies of the student and the teacher to be able to modify them
+    with open(student_yaml, "r") as sty:
+      student_aux = yaml_parse.load(sty)
+    teacher_aux = student_aux.algorithm.cost.teacher
     
-    # Copy student and teacher to be able to modify them
-    teacher_aux = deepcopy(teacher)
-    student_aux = deepcopy(student)
-
     # Retrieve student subnetwork and add regression to teacher layer
     student_hint = splitStudentNetwork(student_aux, [bottom_layer, top_layer], teacher_aux, teacher_layers[i],regressor_type)
-        
+    
     # Train student subnetwork
     student_hint.main_loop()
-      
+          
     # Save pretrained student subnetworks together (without regression to teacher layer)
     student.model.layers[0:top_layer] = student_hint.model.layers[0:-2]
+    
 
   print 'Training student softmax layer'
 
   # Train softmax layer and stack it to the pretrained student network
-  softmax_hint = splitStudentNetwork(student, [len(student.model.layers)-1, len(student.model.layers)-1], teacher, len(teacher.layers)-1,regressor_type) 
+  softmax_hint = splitStudentNetwork(student, [0, len(student.model.layers)-1], teacher, len(teacher.layers)-1,regressor_type) 
   softmax_hint.main_loop()
   student.model.layers = softmax_hint.model.layers
   
-  print 'Finetuning student network'
+  #print 'Finetuning student network'
       
-  # Remove previous monitoring to be able to finetune the student network
-  assert hasattr(student.model,'monitor')
-  old_monitor = student.model.monitor
-  setattr(student.model, 'lastlayer_monitor', old_monitor)
-  del student.model.monitor
+  ## Remove previous monitoring to be able to finetune the student network
+  #assert hasattr(student.model,'monitor')
+  #old_monitor = student.model.monitor
+  #setattr(student.model, 'lastlayer_monitor', old_monitor)
+  #del student.model.monitor
   
-  # Change cost
-  student.algorithm.cost = MethodCost(method='cost_from_X')
+  ## Change cost
+  #student.algorithm.cost = MethodCost(method='cost_from_X')
 
-  student.save_path = student.extensions[0].save_path[0:-4] + "_finetuned.pkl"
-  student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
+  ## Change save paths
+  #student.save_path = student.save_path[0:-4] + "_finetuned.pkl"
+  #if hasattr(student.extensions[-1],'save_path'):
+    #student.extensions[-1].save_path = student.save_path[0:-4] + "_best.pkl" 
   
-  #Finetune student network
-  student.main_loop()
+  ##Finetune student network
+  #student.main_loop()
   
 if __name__ == "__main__":
   main(sys.argv[1:])
