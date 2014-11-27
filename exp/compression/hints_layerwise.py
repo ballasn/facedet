@@ -1,9 +1,7 @@
 import math
 import random
 import os, sys, getopt
-
-#import numpy as np
-#import cPickle as pkl
+import cPickle as pkl
 
 from pylearn2.config import yaml_parse
 from pylearn2 import train
@@ -133,8 +131,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
     # Retrieve student subnetwork
     if fromto_student[1] < len(student.model.layers)-1:
       del student.model.layers[fromto_student[1]+1:] 
-      
-      
+        
     teacher_output_space = teacher.layers[hintlayer].get_output_space()
     student_output_space = student.model.layers[fromto_student[1]].get_output_space()  
         
@@ -237,9 +234,18 @@ def main(argv):
     
     # Train student subnetwork
     student_hint.main_loop()
+    
+    # Load best model
+    for ext in range(len(student_hint.extensions)):
+      if isinstance(student_hint.extensions[ext],MonitorBasedSaveBest):
+	best_path = student_hint.extensions[ext].save_path
+	
+    fo = open(best_path, 'r')
+    best_pretrained_model = pkl.load(fo)
+    fo.close()
           
     # Save pretrained student subnetworks together (without regression to teacher layer)
-    student.model.layers[0:top_layer] = student_hint.model.layers[0:-2]
+    student.model.layers[0:top_layer] = best_pretrained_model.layers[0:-2]
     
 
   print 'Training student softmax layer'
@@ -247,8 +253,18 @@ def main(argv):
   # Train softmax layer and stack it to the pretrained student network
   softmax_hint = splitStudentNetwork(student, [0, len(student.model.layers)-1], teacher, len(teacher.layers)-1,regressor_type) 
   softmax_hint.main_loop()
-  student.model.layers = softmax_hint.model.layers
   
+  # Load best model
+  for ext in range(len(softmax_hint.extensions)):
+    if isinstance(softmax_hint.extensions[ext],MonitorBasedSaveBest):
+      best_path = softmax_hint.extensions[ext].save_path
+	
+  fo = open(best_path, 'r')
+  best_pretrained_model = pkl.load(fo)
+  fo.close()
+          
+  student.model.layers = best_pretrained_model.layers
+    
   #print 'Finetuning student network'
       
   ## Remove previous monitoring to be able to finetune the student network
