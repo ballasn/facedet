@@ -1,6 +1,6 @@
 import numpy as np
 from copy import copy
-from facedet.utils.newcascade.predmaps import get_input_coords
+from facedet.utils.cascade.predmaps import get_input_coords
 
 
 def include(a, b):
