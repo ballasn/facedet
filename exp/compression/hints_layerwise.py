@@ -166,7 +166,6 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
     # Change monitoring channel for best model    
     for ext in range(len(student.extensions)):
       if isinstance(student.extensions[ext],MonitorBasedSaveBest):
-	student.extensions[ext].save_path = student.save_path[0:-4] + "_best.pkl"
 	student.extensions[ext].channel_name = "valid_cost_wrt_teacher"
     
   # Remove teacher decay over epoch if there is one
@@ -175,6 +174,9 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
       del student.extensions[ext]
       
   # Change save path
+  for ext in range(len(student.extensions)):
+    if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+      student.extensions[ext].save_path = student.save_path[0:-4] + "_hintlayer" + str(fromto_student[1]) + "_best.pkl"
   student.save_path = student.save_path[0:-4] + "_hintlayer" + str(fromto_student[1]) + ".pkl"
     
   # Freeze parameters of the layers trained in the last subnetworks
@@ -192,6 +194,7 @@ def main(argv):
   except getopt.GetoptError:
     usage()
     sys.exit(2) 
+    
 
   # Load student
   with open(student_yaml, "r") as sty:
