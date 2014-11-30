@@ -15,6 +15,7 @@ from pylearn2.models.mlp import Sigmoid, Softmax, RectifiedLinear, ConvRectified
 from pylearn2.models.maxout import MaxoutConvC01B, Maxout
 from pylearn2.space import VectorSpace
 from copy import deepcopy
+from pylearn2.utils import sharedX
 
     
 def main(argv):
@@ -42,17 +43,27 @@ def main(argv):
     n_hints = 0
   
   # Load pretrained student network
-  fo = open(student.extensions[0].save_path[0:-4] + "_hintlayer" + str(load_layer) + "_best.pkl", 'r')
+  fo = open(student.save_path[0:-4] + "_hintlayer" + str(load_layer) + "_best.pkl", 'r')
   pretrained_model = pkl.load(fo)
   fo.close()
-  
   
   #print student.model.layers[-2].irange
   student.model.layers[0:load_layer+1] = pretrained_model.layers[0:load_layer+1]  
   #print student.model.layers[-2].irange
   #exit(1)
+  
+  student.algorithm.learning_rate.set_value(0.0005)
+  
+#  import pdb
+#  pdb.set_trace()
 
-  student.save_path = student.extensions[0].save_path[0:-4] + "_hint" + str(load_layer) + "_softmax.pkl"
+  for i in range(0,load_layer+1):
+    student.model.layers[i].W_lr_scale = 0.005
+    student.model.layers[i].b_lr_scale = 0.005
+ 
+  student.algorithm.termination_criterion.max_epochs = 100
+ 
+  student.save_path = student.save_path[0:-4] + "_hint" + str(load_layer) + "_softmax.pkl"
   student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
 
   student.main_loop()
