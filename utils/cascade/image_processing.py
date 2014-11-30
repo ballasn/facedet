@@ -1,8 +1,9 @@
 import numpy as np
 import cv2
+import sys
 
 
-def process_image(fprop_func, image, scales, pred_size, resize = False):
+def process_image(fprop_func, image, scales, pred_stride, pred_size, piece_size=700):
     """
     Runs the fprop on different scales of an image
     returns a list of maps indexed like the scales
@@ -11,52 +12,56 @@ def process_image(fprop_func, image, scales, pred_size, resize = False):
     image_file : path to the image_file
     scales : list of scales
     """
-
-    rval = {}
+    map_ = {}
+    minibatch = {}
     for s in scales:
-        #print s, pred_size
-
-        if (resize):
-            img_ = cv2.resize(image, (pred_size, pred_size))
-        else:
-            img_ = rescale(image, s, pred_size)
-        rval[s] = apply_fprop(fprop_func, img_)
-    #    cv2.imshow('img_' + str(s) , img_)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
-    #print rval
-
-    return rval
+        img_ = rescale(image, s, pred_size)
+        minibatch[s] = img_
+    map_ = apply_fprop(fprop_func, minibatch, pred_stride, pred_size, piece_size)
+    return map_
 
 
-def apply_fprop(fprop_func, image):
+def apply_fprop(fprop_func, image, k_stride, k_shape, piece_size=700):
     """
     Apply a model on a image, returns the map of p(face)
     ------------------------
     fprop_func : a compiled fprop function
     image : a numpy array representing an image
     """
-    # Add a minibatch dim to get C01B format
-    #print 'before reshape', image.shape,
-    image = np.reshape(image, list(image.shape)+[1])
-    #print 'after reshape', image.shape,
-    image = np.transpose(image, (2, 0, 1, 3))
-    #print 'after transpose', image.shape,
-    image = np.transpose(image, (3, 0, 1, 2))
-    #v cprint image.shape
-    #print image.shape
-    rval = fprop_func(image)
+    if type(image) == dict:
+        rval = {}
+        for s in image:
+            rval[s] = apply_fprop(fprop_func, image[s], k_stride, k_shape,
+                                  piece_size)
+        return rval
 
-    #rval = np.transpose(rval, (0, 2, 3, 1))
-    #print 'predict size', rval.shape
+    # Add a minibatch dim to get C01B format
+    # print 'before reshape', image.shape,
+    img_ = np.reshape(image, list(image.shape)+[1])
+    # print 'after reshape', image.shape,
+    img_ = np.transpose(img_, (2, 0, 1, 3))
+    # print 'after transpose', image.shape,
+    img_ = np.transpose(img_, (3, 0, 1, 2))
+
+    # Need to deal with Out of memory error
+    try:
+        rval = fprop_func(img_)
+    except RuntimeError:  # Because sometimes it isn't a memory error
+        print sys.exc_info()[1]
+        print 'RunTime Error'
+        print 'It can happen because the image is too large.',
+        print 'Try a lower piece_size'
+        sys.exit(42)
+
+    # Here we need to reconstruct the output if in pieces
+    # Sigmoid version : 01BP
     # Softmax now keeps the format
     # If BC01 used, the output is BP01
-    # prob_map = rval[0, 0, :, :]
-    #print 'shape of probs map', prob_map.shape
+
     # BP01 : Softmax
     return rval[0, 0, :, :]
     # 01BP : Sigmoid
-    #return rval[:, :, 0, 0]
+    return rval[:, :, 0, 0]
 
 
 def rescale(image, scale, pred_size):
@@ -67,39 +72,24 @@ def rescale(image, scale, pred_size):
     scale : the rescaled image has size
             scale * image_size
     """
-    if scale == 1 and min(image.shape[0], image.shape[1]) >= pred_size:
-        return image
-    # WARNING : resize needs to receive swapped sizes
+    sh = image.shape
+    # WARNING : resize needs to receive swapped sizes to perform as we would
+    # imagine
+
     resized_image = cv2.resize(image,
-                               (max(int(image.shape[1] * scale), pred_size),
-                                max(int(image.shape[0] * scale), pred_size)),
+                               (max(int(sh[1] * scale), pred_size),
+                                max(int(sh[0] * scale), pred_size)),
 
                                interpolation=cv2.INTER_CUBIC)
     resized_array = np.asarray(resized_image, dtype=image.dtype)
-
     return resized_array
 
 
-def square(image, size=None):
+def cut_in_pieces(img, k_stride, k_shape, max_side_size=700):
     """
-    0-pad an image to get it square
-    -------------------------------
-    image : numpy array representing an image
-    size : if precised, 0 pad to get image.shape = (size,size)
-    """
-    img = image.view()
-    if size is None:
-        size = max(img.shape)
-    rval = np.zeros((size, size, 3), dtype='float32')
-    rval[:img.shape[0], :img.shape[1], :] = img
-    return rval
-
-
-def cut_in_squares(img, k_stride, k_shape, square_size):
-    """
-    Cut an image into squares to be classified independently
+    Cut an image into pieces to be classified independently
     Enables to process large images without mem overload
-    The overlap between squares is k_shape - k_stride, eg
+    The overlap between pieces is k_shape - k_stride, eg
     we mimic taking the whole image as input
     ----------------------------------------------------
     img : numpy array representing an image
@@ -107,62 +97,145 @@ def cut_in_squares(img, k_stride, k_shape, square_size):
     k_shape : shape of the kernel
     square_size = size of the extracted images
     """
-    square_stride = square_size - (k_shape - k_stride)
-    # We have to deal with the image remainder
-    x_squares = img.shape[0] / square_stride + 1
-    y_squares = img.shape[1] / square_stride + 1
+    if max_side_size > img.shape[0]:
+        x_pieces = 1
+        x_size = img.shape[0]
+        x_stride = 0
+    else:
+        x_size = max_side_size
+        x_stride = max_side_size - (k_shape - k_stride)
+        x_pieces = int(img.shape[0] / x_stride + 1)
 
-    squares = np.zeros((x_squares, y_squares, square_size, square_size, 3),
-                       dtype='float32')
-    for i in xrange(x_squares):
-        for j in xrange(y_squares):
-            init_x = i * square_stride
-            init_y = j * square_stride
+    if max_side_size > img.shape[1]:
+        y_pieces = 1
+        y_size = img.shape[1]
+        y_stride = 0
+    else:
+        y_size = max_side_size
+        y_stride = max_side_size - (k_shape - k_stride)
+        y_pieces = int(img.shape[1] / y_stride + 1)
+
+    if y_pieces == 1 and x_pieces == 1:
+        return img
+
+    pieces = np.zeros((x_pieces, y_pieces, x_size, y_size, 3),
+                      dtype='float32')
+    for i in xrange(x_pieces):
+        for j in xrange(y_pieces):
+            init_x = i * x_stride
+            init_y = j * y_stride
             # We need square_size elements
-            end_x = init_x + square_size
-            end_y = init_y + square_size
-            if i == x_squares - 1:
+            end_x = init_x + x_size
+            end_y = init_y + y_size
+            if i == x_pieces - 1:
                 end_x = img.shape[0]
-            if j == y_squares - 1:
+                init_x = end_x - x_size
+            if j == y_pieces - 1:
                 end_y = img.shape[1]
-            squares[i, j, :end_x - init_x, :end_y - init_y, :] =\
+                init_y = end_y - y_size
+            pieces[i, j, :, :, :] =\
                     img[init_x: end_x, init_y: end_y, :]
+    return pieces
 
-    return squares
-
-
-def get_init(i, j, img, k_stride, k_shape, squares, square_size):
+def cut_in_dict(img, k_stride, k_shape, max_side_size=700):
     """
-    Returns the coords of the top-left pixel of squares[i,j]
+    Cut an image into pieces to be classified independently
+    Enables to process large images without mem overload
+    The overlap between pieces is k_shape - k_stride, eg
+    we mimic taking the whole image as input
+    ----------------------------------------------------
+    img : numpy array representing an image
+    k_stride : stride of the kernel
+    k_shape : shape of the kernel
+    square_size = size of the extracted images
     """
-    square_stride = square_size - (k_shape - k_stride)
-    init_x = i * square_stride
-    init_y = j * square_stride
+    if max_side_size > img.shape[0]:
+        x_pieces = 1
+        x_size = img.shape[0]
+        x_stride = 0
+    else:
+        x_size = max_side_size
+        x_stride = max_side_size - (k_shape - k_stride)
+        x_pieces = int(np.ceil((img.shape[0]-max_side_size) /
+            float(x_stride)))+1
+
+    if max_side_size > img.shape[1]:
+        y_pieces = 1
+        y_size = img.shape[1]
+        y_stride = 0
+    else:
+        y_size = max_side_size
+        y_stride = max_side_size - (k_shape - k_stride)
+        y_pieces = int(np.ceil((img.shape[1]-max_side_size) /
+            float(y_stride)))+1
+
+    if y_pieces == 1 and x_pieces == 1:
+        print 'Error, image should have been of larger size'
+        exit(12)
+    # pieces will be a dict indexed by top left pixels of pieces
+    # This enables different sizes of pieces
+    pieces = {}
+    for i in xrange(x_pieces):
+        for j in xrange(y_pieces):
+            init_x = i * x_stride
+            init_y = j * y_stride
+            # We need square_size elements
+            end_x = init_x + x_size
+            end_y = init_y + y_size
+            if i == x_pieces - 1:
+                end_x = img.shape[0]
+                init_x = min(end_x - x_size, init_x)
+            if j == y_pieces - 1:
+                end_y = img.shape[1]
+                init_y = min(end_y - y_size, init_y)
+            pieces[(init_x, init_y)] = img[init_x: end_x, init_y: end_y, :]
+    return pieces
+
+
+def get_init(i, j, img_shape, k_stride, k_shape, pieces, piece_size=700):
+    """
+    Returns the coords of the top-left pixel of pieces[i,j]
+    """
+    x_stride = min(piece_size, img_shape[0]) - (k_shape - k_stride)
+    y_stride = min(piece_size, img_shape[1]) - (k_shape - k_stride)
+    init_x = i * x_stride
+    init_y = j * y_stride
+    if i == pieces.shape[0] - 1:
+        init_x = img_shape[0] - pieces.shape[2]
+    if j == pieces.shape[1] - 1:
+        init_y = img_shape[1] - pieces.shape[3]
     return init_x, init_y
 
 
-def reconstruct(img, squares, k_stride, k_shape, square_size):
+def reconstruct(pieces, img_shape, k_stride, k_shape, piece_size=700):
     """
-    Rebuilds the image from the squares
-    Useful for test purpose, you can check that the squares
+    Rebuilds the image from the pieces
+    Useful for test purpose, you can check that the pieces
     were created the right way
     """
-    img1 = np.zeros(img.shape)
-    for i in xrange(squares.shape[0]):
-        for j in xrange(squares.shape[1]):
-            init_x, init_y = get_init(i, j, img,
-                                      k_stride, k_shape, squares, square_size)
-            end_x = min(init_x + square_size, img.shape[0])
-            end_y = min(init_y + square_size, img.shape[1])
+    img1 = np.zeros(img_shape)
+    for i in xrange(pieces.shape[0]):
+        for j in xrange(pieces.shape[1]):
+            init_x, init_y = get_init(i, j, img_shape,
+                                      k_stride, k_shape, pieces, piece_size)
+            end_x = init_x + pieces.shape[2]
+            end_y = init_y + pieces.shape[3]
+            if i == pieces.shape[0] - 1:
+                end_x = img_shape[0]
+                init_x = end_x - pieces.shape[2]
+            if j == pieces.shape[1] - 1:
+                end_y = img_shape[1]
+                init_y = end_y - pieces.shape[3]
+
             img1[init_x: end_x, init_y: end_y, :] =\
-                    squares[i, j, :end_x - init_x, :end_y - init_y, :]
+                    pieces[i, j, :, :, :]
     return img1
 
 
-def reconstruct_pred_map(probs, squares, img, k_stride, pred_shape):
+def reconstruct_pred_map(probs, pieces, img, k_stride, pred_shape):
     """
     Reconstruct the feature map from the predictions made
-    on the squares representation
+    on the pieces representation
     Kernel_stride should divide image_size, yet usually the border which is
     lost is really thin
     -------------------
@@ -172,7 +245,7 @@ def reconstruct_pred_map(probs, squares, img, k_stride, pred_shape):
                   (img.shape[1] - pred_shape + 1) / k_stride)
     pred_map = np.zeros(pred_shape)
     preds = np.reshape(probs[:, :, :, 0],
-                       squares.shape[0:2] + probs.shape[1:3])
+                       pieces.shape[0:2] + probs.shape[1:3])
     for i in xrange(preds.shape[0]):
         for j in xrange(preds.shape[1]):
             # Indices on the pred_map
@@ -180,7 +253,7 @@ def reconstruct_pred_map(probs, squares, img, k_stride, pred_shape):
             init_y = j * probs.shape[2]
             end_x = init_x + probs.shape[1]
             end_y = init_y + probs.shape[2]
-            # Indices on preds[i,j], predictions over squares[i,j]
+            # Indices on preds[i,j], predictions over pieces[i,j]
             end_i = preds[i, j].shape[0]
             end_j = preds[i, j].shape[1]
 
@@ -194,3 +267,20 @@ def reconstruct_pred_map(probs, squares, img, k_stride, pred_shape):
             pred_map[init_x: end_x, init_y: end_y] =\
                         preds[i, j, :end_i, :end_j]
     return pred_map
+
+if __name__ == '__main__':
+    print '*'*50
+    k_stride = 1
+    k_shape = 1
+    a = 10000 * np.random.rand(3, 3, 3)
+    print a.shape
+    p = cut_in_pieces(a, k_stride, k_shape, max_side_size=2)
+    print p.shape
+    b = reconstruct(p, a.shape, k_stride, k_shape, 2)
+    print b.shape
+    print a.dtype, b.dtype
+    print a-b
+    print np.allclose(a, b)
+    print '*'*50
+
+

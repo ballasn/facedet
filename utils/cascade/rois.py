@@ -1,6 +1,6 @@
 import numpy as np
-from predmaps import get_input_coords
 from copy import copy
+from facedet.utils.cascade.predmaps import get_input_coords
 
 
 def include(a, b):
@@ -9,6 +9,7 @@ def include(a, b):
     """
     rval = (a[0]<=b[0] and a[1]<=b[1] and b[2]<=a[2] and b[3]<=a[3])
     return rval
+
 
 def IoM(a, b):
     """
@@ -23,52 +24,20 @@ def IoM(a, b):
     assert a[1] >= a[0] and b[1] >= b[0]
     assert a[3] >= a[2] and b[3] >= b[2]
 
-    min_area = min((a[1] - a[0]) * (a[3] - a[2]), (b[1] - b[0]) * (b[3] - b[2]))
-    union_area = max(0, min(a[1], b[1]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[2], b[2]))
+    min_area = min((a[1] - a[0]) * (a[3] - a[2]),
+                   (b[1] - b[0]) * (b[3] - b[2]))
+    union_area = max(0, min(a[1], b[1]) - max(a[0], b[0])) *\
+                 max(0, min(a[3], b[3]) - max(a[2], b[2]))
 
     return union_area / float(min_area)
-
-
-def remove_inclusions(n_z_elems, model, overlap_ratio, remove_inclusions):
-    """
-    Remove elements included in other elements from the list
-    """
-    ### FIXME n_z_elems must be sorted according to prob
-
-    l = []
-    for i, [s, x, y, sco, sli_idx] in enumerate(n_z_elems):
-        [[x0, y0], [x1, y1]] = get_input_coords(x, y, model)
-        a = np.array([x0/s, y0/s])
-        b = np.array([(x0 + x1)/s, (y0+y1)/s])
-        l.append([a[0], a[1], b[0], b[1], i])
-
-    for i, e in enumerate(l):
-        if e is None:
-            continue
-        for j, f in enumerate(l):
-            if f is None or j==i:
-                continue
-            if remove_inclusions and include(e, f):
-                l[j] = None
-            elif remove_inclusions and include(f, e):
-                l[i] = None
-            elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
-                                           [f[0], f[2], f[1], f[3]]) > overlap_ratio:
-                l[j] = None
-    rval = []
-    for i, e in enumerate(l):
-        if e is None:
-            continue
-        rval.append(n_z_elems[i])
-    return rval
-
 
 
 def get_rois(rois, model,
              prev_rois=None,
              prev_score=None,
              enlarge_factor=0.0, overlap_ratio=1.0,
-             remove_inclusion=True):
+             remove_inclusion=True,
+             to_file=False):
     """
     Return the coords of patches corresponding to
     non-zeros areas after nms execution
@@ -98,22 +67,22 @@ def get_rois(rois, model,
         l.append([x0, y0, x0+w, y0+h, sco])
 
     # Perform inclusion/non-maximum suppersion
-    for i, e in enumerate(l):
-        if e is None:
-            continue
-        for j, f in enumerate(l):
-            if f is None or j==i:
+    if not to_file:
+        print 'Performing NMS or removing inclusions'
+        for i, e in enumerate(l):
+            if e is None:
                 continue
-            if remove_inclusion and include(e, f):
-                l[j] = None
-            elif remove_inclusion and include(f, e):
-                l[i] = None
-            elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
-                                           [f[0], f[2], f[1], f[3]]) > overlap_ratio:
-                l[j] = None
-    rval = []
-
-    ### Return the non nul elements
+            for j, f in enumerate(l):
+                if f is None or j == i:
+                    continue
+                if remove_inclusion and include(e, f):
+                    l[j] = None
+                elif remove_inclusion and include(f, e):
+                    l[i] = None
+                elif overlap_ratio < 1 and IoM([e[0], e[2], e[1], e[3]],
+                                               [f[0], f[2], f[1], f[3]]) > overlap_ratio:
+                    l[j] = None
+    # Return the non nul elements
     new_rois = []
     new_scores = []
     for i, e in enumerate(l):
@@ -156,6 +125,12 @@ def correct_rois(rois, img_shape):
         f = np.copy(e)
         f[0, :] = np.maximum(f[0, :], np.zeros((2,)))
         f[1, :] = np.minimum(f[1, :], np.array([img_shape[0:2]]))
+        if int(f[0, 1]) >= img_shape[1] or int(f[0, 0]) >= img_shape[0]:
+            print 'Out of bounds in correct_rois'
+            print e
+            print f
+            print img_shape
+            exit(43)
         rval[i] = f
     return rval
 
