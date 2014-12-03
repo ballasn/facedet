@@ -160,8 +160,8 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
     student.model.monitor_targets = False
 
     # Change monitored channel
-    student.algorithm.termination_criterion.channel_name = "valid_cost_wrt_teacher"
-    student.algorithm.termination_criterion._channel_name = "valid_cost_wrt_teacher"
+    student.algorithm.termination_criterion.channel_name = "test_cost_wrt_teacher"
+    student.algorithm.termination_criterion._channel_name = "test_cost_wrt_teacher"
     
     # Change monitoring channel for best model    
     for ext in range(len(student.extensions)):
@@ -248,8 +248,10 @@ def main(argv):
     fo.close()
           
     # Save pretrained student subnetworks together (without regression to teacher layer)
-    student.model.layers[0:top_layer] = best_pretrained_model.layers[0:-2]
+    student.model.layers[0:top_layer+1] = best_pretrained_model.layers[0:top_layer+1]
     
+  import pdb
+  pdb.set_trace()
 
   print 'Training student softmax layer'
 
