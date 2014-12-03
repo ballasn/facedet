@@ -21,17 +21,19 @@ def numberParams(model):
       params = params + kernel*previous_output*model.model.layers[i].output_space.num_channels
       previous_output = model.model.layers[i].output_space.num_channels
     elif isinstance(model.model.layers[i], Maxout):
-      input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
-      params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      if isinstance(model.model.layers[i-1], MaxoutConvC01B):
+	input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
+	params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      else:
+	params = params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     elif isinstance(model.model.layers[i], Softmax):
-      input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
-      params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim     
-      #params = params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
+      if isinstance(model.model.layers[i-1], MaxoutConvC01B):
+	input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
+	params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      else:
+	params = params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     else:
       print 'error'
-      
-    import pdb
-    pdb.set_trace()
           
   return params
       

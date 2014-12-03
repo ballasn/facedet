@@ -22,10 +22,17 @@ def numberMult(model):
       mult = mult + detector*kernel*previous_output*model.model.layers[i].output_space.num_channels
       previous_output = model.model.layers[i].output_space.num_channels
     elif isinstance(model.model.layers[i], Maxout):
-      input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
-      mult = mult + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      if isinstance(model.model.layers[i-1], MaxoutConvC01B):
+	input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
+	mult = mult + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      else:
+	mult = mult + input_space*model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     elif isinstance(model.model.layers[i], Softmax):
-      mult = mult + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
+      if isinstance(model.model.layers[i-1], MaxoutConvC01B):
+	input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
+	mult = mult + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+      else:
+	mult = mult + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     else:
       print 'error'
           
@@ -39,11 +46,14 @@ def main(argv):
   except getopt.GetoptError:
     usage()
     sys.exit(2) 
+    
+  import pdb
+  pdb.set_trace()
 
   # Load student
   with open(model_yaml, "r") as sty:
     model = yaml_parse.load(sty)
-        
+  
   result = numberMult(model)
     
   print 'Number of multiplications is %is' % (result)
