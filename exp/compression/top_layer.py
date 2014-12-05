@@ -42,26 +42,29 @@ def main(argv):
 
   else:
     n_hints = 0
+    
+  
+  hint_path = student.save_path[0:-4] + "_hintlayer" + str(load_layer) + ".pkl"
+  for ext in range(len(student.extensions)):
+   if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+     hint_path = student.extensions[ext].save_path[0:-9] + "_hintlayer" + str(load_layer) + "_best.pkl" 
   
   # Load pretrained student network
-  fo = open(student.save_path[0:-4] + "_hintlayer" + str(load_layer) + ".pkl", 'r')
+  fo = open(hint_path, 'r')
   pretrained_model = pkl.load(fo)
   fo.close()
   
-  #print student.model.layers[-2].irange
   student.model.layers[0:load_layer+1] = pretrained_model.layers[0:load_layer+1]  
-  #print student.model.layers[-2].irange
-  #exit(1)
   
   pretrained_model = None
   del pretrained_model
   
-  #student.algorithm.learning_rate.set_value(0.005)
+  #student.algorithm.learning_rate.set_value(0.001)
 
   #for i in range(0,load_layer+1):
   #  student.model.layers[i].W_lr_scale = 0.1
   # student.model.layers[i].b_lr_scale = 0.1
-
+  
   student.save_path = student.save_path[0:-4] + "_hint" + str(load_layer) + "_softmax.pkl"
   
   for ext in range(len(student.extensions)):

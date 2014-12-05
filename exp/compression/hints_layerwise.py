@@ -160,13 +160,25 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
     student.model.monitor_targets = False
 
     # Change monitored channel
-    student.algorithm.termination_criterion.channel_name = "test_cost_wrt_teacher"
-    student.algorithm.termination_criterion._channel_name = "test_cost_wrt_teacher"
+    if student.algorithm.monitoring_dataset.has_key('valid'):
+      student.algorithm.termination_criterion.channel_name = "valid_cost_wrt_teacher"
+      student.algorithm.termination_criterion._channel_name = "valid_cost_wrt_teacher"
+      
+      # Change monitoring channel for best model    
+      for ext in range(len(student.extensions)):
+	if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+	  student.extensions[ext].channel_name = "valid_cost_wrt_teacher"
+    elif student.algorithm.monitoring_dataset.has_key('test'):
+      student.algorithm.termination_criterion.channel_name = "test_cost_wrt_teacher"
+      student.algorithm.termination_criterion._channel_name = "test_cost_wrt_teacher"
     
-    # Change monitoring channel for best model    
-    for ext in range(len(student.extensions)):
-      if isinstance(student.extensions[ext],MonitorBasedSaveBest):
-	student.extensions[ext].channel_name = "valid_cost_wrt_teacher"
+      # Change monitoring channel for best model    
+      for ext in range(len(student.extensions)):
+	if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+	  student.extensions[ext].channel_name = "test_cost_wrt_teacher"
+	  
+    else:
+      raise AssertionError("Unknown monitoring dataset")
     
   # Remove teacher decay over epoch if there is one
   for ext in range(len(student.extensions)):
@@ -239,6 +251,7 @@ def main(argv):
     student_hint.main_loop()
     
     # Load best model
+    best_path = student_hint.save_path
     for ext in range(len(student_hint.extensions)):
       if isinstance(student_hint.extensions[ext],MonitorBasedSaveBest):
 	best_path = student_hint.extensions[ext].save_path
@@ -249,9 +262,6 @@ def main(argv):
           
     # Save pretrained student subnetworks together (without regression to teacher layer)
     student.model.layers[0:top_layer+1] = best_pretrained_model.layers[0:top_layer+1]
-    
-  import pdb
-  pdb.set_trace()
 
   print 'Training student softmax layer'
 
@@ -260,6 +270,7 @@ def main(argv):
   softmax_hint.main_loop()
   
   # Load best model
+  best_path = softmax_hint.save_path
   for ext in range(len(softmax_hint.extensions)):
     if isinstance(softmax_hint.extensions[ext],MonitorBasedSaveBest):
       best_path = softmax_hint.extensions[ext].save_path
@@ -283,8 +294,9 @@ def main(argv):
 
   ## Change save paths
   #student.save_path = student.save_path[0:-4] + "_finetuned.pkl"
-  #if hasattr(student.extensions[-1],'save_path'):
-    #student.extensions[-1].save_path = student.save_path[0:-4] + "_best.pkl" 
+  #for ext in range(len(student.extensions)):
+    #if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+      #student.extensions[ext].save_path = student.save_path[0:-4] + "_best.pkl" 
   
   ##Finetune student network
   #student.main_loop()
