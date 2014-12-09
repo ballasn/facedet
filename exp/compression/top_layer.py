@@ -17,7 +17,7 @@ from pylearn2.space import VectorSpace
 from copy import deepcopy
 from pylearn2.utils import sharedX
 from pylearn2.utils import serial
-
+from pylearn2.train_extensions.best_params import MonitorBasedSaveBest
 
 def main(argv):
 
@@ -44,29 +44,36 @@ def main(argv):
   else:
     n_hints = 0
 
+
+  hint_path = student.save_path[0:-4] + "_hintlayer" + str(load_layer) + ".pkl"
+  for ext in range(len(student.extensions)):
+   if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+     hint_path = student.extensions[ext].save_path[0:-9] + "_hintlayer" + str(load_layer) + "_best.pkl"
+
   # Load pretrained student network
-  fo = open(student.save_path[0:-4] + "_hintlayer" + str(load_layer) + "_best.pkl", 'r')
-  pretrained_model = pkl.load(fo)
-  fo.close()
+  pretrained_model = serial.load(hint_path)
+  #fo = open(hint_path, 'r')
+  #pretrained_model = pkl.load(fo)
+  #fo.close()
 
-  #print student.model.layers[-2].irange
+
   student.model.layers[0:load_layer+1] = pretrained_model.layers[0:load_layer+1]
-  #print student.model.layers[-2].irange
-  #exit(1)
 
-  student.algorithm.learning_rate.set_value(0.0005)
 
-#  import pdb
-#  pdb.set_trace()
+  pretrained_model = None
+  del pretrained_model
 
-  for i in range(0,load_layer+1):
-    student.model.layers[i].W_lr_scale = 0.005
-    student.model.layers[i].b_lr_scale = 0.005
+  #student.algorithm.learning_rate.set_value(0.001)
 
-  student.algorithm.termination_criterion.max_epochs = 100
+  #for i in range(0,load_layer+1):
+  #  student.model.layers[i].W_lr_scale = 0.1
+  # student.model.layers[i].b_lr_scale = 0.1
 
   student.save_path = student.save_path[0:-4] + "_hint" + str(load_layer) + "_softmax.pkl"
-  student.extensions[0].save_path = student.save_path[0:-4] + "_best.pkl"
+
+  for ext in range(len(student.extensions)):
+   if isinstance(student.extensions[ext],MonitorBasedSaveBest):
+     student.extensions[ext].save_path = student.save_path[0:-4] + "_best.pkl"
 
   student.main_loop()
 
