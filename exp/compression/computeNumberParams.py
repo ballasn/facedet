@@ -30,9 +30,9 @@ def numberParams(model):
     elif isinstance(model.model.layers[i], Softmax):
       if isinstance(model.model.layers[i-1], MaxoutConvC01B):
 	input_space = model.model.layers[i].input_space.shape[0]*model.model.layers[i].input_space.shape[1]
-	params = params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
+	params = 2*params + input_space*model.model.layers[i].input_space.num_channels*model.model.layers[i].output_space.dim
       else:
-	params = params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
+	params = 2*params + model.model.layers[i].input_space.dim*model.model.layers[i].output_space.dim
     else:
       print 'error'
   return params
