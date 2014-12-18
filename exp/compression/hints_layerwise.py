@@ -144,7 +144,7 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
 	hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
 	student.model.layers.append(hint_reg_layer)
       elif (teacher_output_space.shape == student_output_space.shape and teacher_output_space.num_channels == student_output_space.num_channels):
-	# Nothing
+	pass
     elif regressor_type == 'fc':
       raise NotImplementedError('FC')
       # Add fully-connected regressor
