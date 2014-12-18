@@ -137,12 +137,14 @@ def splitStudentNetwork(student, fromto_student, teacher, hintlayer, regressor_t
         
     # Add regressor to the student subnetwork if needed
     if regressor_type == 'conv':
-      assert(teacher_output_space.shape < student_output_space.shape or (teacher_output_space.num_channels > student_output_space.num_channels and teacher_output_space.shape == student_output_space.shape))
-      # Add convolutional regressor
-      hint_reg_layer = generateConvRegressor(teacher.layers[hintlayer], student.model.layers[-1])
-      hint_reg_layer.set_mlp(student.model)  
-      hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
-      student.model.layers.append(hint_reg_layer)
+      if(teacher_output_space.shape < student_output_space.shape or (teacher_output_space.num_channels > student_output_space.num_channels and teacher_output_space.shape == student_output_space.shape)):
+	# Add convolutional regressor
+	hint_reg_layer = generateConvRegressor(teacher.layers[hintlayer], student.model.layers[-1])
+	hint_reg_layer.set_mlp(student.model)  
+	hint_reg_layer.set_input_space(student.model.layers[-1].output_space)
+	student.model.layers.append(hint_reg_layer)
+      elif (teacher_output_space.shape == student_output_space.shape and teacher_output_space.num_channels == student_output_space.num_channels):
+	# Nothing
     elif regressor_type == 'fc':
       raise NotImplementedError('FC')
       # Add fully-connected regressor
@@ -264,7 +266,8 @@ def main(argv):
     student.model.layers[0:top_layer+1] = best_pretrained_model.layers[0:top_layer+1]
 
   print 'Training student softmax layer'
-
+  import pdb
+  pdb.set_trace()
   # Train softmax layer and stack it to the pretrained student network
   softmax_hint = splitStudentNetwork(student, [0, len(student.model.layers)-1], teacher, len(teacher.layers)-1,regressor_type) 
   softmax_hint.main_loop()
