@@ -301,7 +301,7 @@ class CudNNElemwise(Layer):
         W, = self.transformer.get_params()
         W.name = self.layer_name + '_W'
 
-        assert self.tied_b
+        #assert self.tied_b
         if self.tied_b:
             self.b = sharedX(np.zeros((self.detector_space.num_channels)) +
                              self.init_bias)
@@ -406,20 +406,20 @@ class CudNNElemwise(Layer):
         return np.transpose(raw, (outp, rows, cols, inp))
 
 
-    @wraps(Layer.get_monitoring_channels_from_state)
-    def get_monitoring_channels_from_state(self, state, target=None):
+   # # @wraps(Layer.get_monitoring_channels_from_state)
+   # # def get_monitoring_channels_from_state(self, state, target=None):
 
-        rval = super(CudNNELemwise, self).get_monitoring_channels_from_state(state,
-                                                                            target)
+   #  #    rval = super(CudNNELemwise, self).get_monitoring_channels_from_state(state,
+   #                                                                          target)
 
-        cst = self.cost
-        orval = self.nonlin.get_monitoring_channels_from_state(state,
-                                                               target,
-                                                               cost_fn=cst)
+   #   #   cst = self.cost
+   #    #  orval = self.nonlin.get_monitoring_channels_from_state(state,
+   #                                                             target,
+   #                                                             cost_fn=cst)
 
-        rval.update(orval)
+   #     # rval.update(orval)
 
-        return rval
+   #      #return rval
 
     @wraps(Layer.get_monitoring_channels)
     def get_monitoring_channels(self):
@@ -458,8 +458,10 @@ class CudNNElemwise(Layer):
                            ('kernel_norms_max', row_norms.max()),
                            ])
 
-        orval = super(CudNNElemwise, self).get_monitoring_channels_from_state(state,
-                                                                            targets)
+        orval = super(CudNNElemwise, self).get_layer_monitoring_channels(
+            state_below,
+            state,
+            targets)
 
         rval.update(orval)
 
@@ -482,7 +484,7 @@ class CudNNElemwise(Layer):
         if not hasattr(self, 'tied_b'):
             self.tied_b = False
 
-        assert self.tied_b
+        #assert self.tied_b
         if self.tied_b:
             b = self.b.dimshuffle('x', 0, 'x', 'x')
         else:
@@ -511,7 +513,7 @@ class CudNNElemwise(Layer):
 
             if self.pool_type == 'max':
                 p = downsample.max_pool_2d(d, self.pool_shape,
-                                                ignore_border=False)
+                                           ignore_border=False)
 
                 #p = max_pool(bc01=d, pool_shape=self.pool_shape,
                 #        pool_stride=self.pool_stride,

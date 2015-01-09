@@ -6,6 +6,7 @@ import logging
 import math
 import sys
 import warnings
+import functools
 
 import numpy as np
 from theano import config, scan
@@ -405,44 +406,9 @@ class CorrMMElemwise(Layer):
 
         return np.transpose(raw, (outp, rows, cols, inp))
 
-
-    @wraps(Layer.get_monitoring_channels_from_state)
-    def get_monitoring_channels_from_state(self, state, target=None):
-
-        rval = super(CorrMMELemwise, self).get_monitoring_channels_from_state(state,
-                                                                            target)
-
-        cst = self.cost
-        orval = self.nonlin.get_monitoring_channels_from_state(state,
-                                                               target,
-                                                               cost_fn=cst)
-
-        rval.update(orval)
-
-        return rval
-
-    @wraps(Layer.get_monitoring_channels)
-    def get_monitoring_channels(self):
-        warnings.warn("Layer.get_monitoring_channels is deprecated. " + \
-                    "Use get_layer_monitoring_channels instead. " + \
-                    "Layer.get_monitoring_channels will be removed " + \
-                    "on or after september 24th 2014", stacklevel=2)
-
-        W, = self.transformer.get_params()
-
-        assert W.ndim == 4
-
-        sq_W = T.sqr(W)
-
-        row_norms = T.sqrt(sq_W.sum(axis=(1, 2, 3)))
-
-        return OrderedDict([('kernel_norms_min',  row_norms.min()),
-                            ('kernel_norms_mean', row_norms.mean()),
-                            ('kernel_norms_max',  row_norms.max()), ])
-
-    @wraps(Layer.get_layer_monitoring_channels)
+    @functools.wraps(Layer.get_layer_monitoring_channels)
     def get_layer_monitoring_channels(self, state_below=None,
-                                    state=None, targets=None):
+                                      state=None, targets=None):
 
         W, = self.transformer.get_params()
 
@@ -450,28 +416,50 @@ class CorrMMElemwise(Layer):
 
         sq_W = T.sqr(W)
 
-        row_norms = T.sqrt(sq_W.sum(axis=(1, 2, 3)))
+        row_norms = T.sqrt(sq_W.sum(axis=(0, 1, 2)))
 
-        rval = OrderedDict([
-                           ('kernel_norms_min', row_norms.min()),
-                           ('kernel_norms_mean', row_norms.mean()),
-                           ('kernel_norms_max', row_norms.max()),
-                           ])
+        rval = OrderedDict([('kernel_norms_min', row_norms.min()),
+                            ('kernel_norms_mean', row_norms.mean()),
+                            ('kernel_norms_max', row_norms.max()), ])
 
-        orval = super(CorrMMElemwise, self).get_monitoring_channels_from_state(state,
-                                                                            targets)
+        if (state is not None) or (state_below is not None):
+            if state is None:
+                state = self.fprop(state_below)
 
-        rval.update(orval)
+            P = state
 
-        cst = self.cost
-        orval = self.nonlin.get_monitoring_channels_from_state(state,
-                                                               targets,
-                                                               cost_fn=cst)
+            vars_and_prefixes = [(P, '')]
 
-        rval.update(orval)
+            for var, prefix in vars_and_prefixes:
+                assert var.ndim == 4
+                v_max = var.max(axis=(1, 2, 3))
+                v_min = var.min(axis=(1, 2, 3))
+                v_mean = var.mean(axis=(1, 2, 3))
+                v_range = v_max - v_min
+
+                # max_x.mean_u is "the mean over *u*nits of the max over
+                # e*x*amples" The x and u are included in the name because
+                # otherwise its hard to remember which axis is which when
+                # reading the monitor I use inner.outer rather than
+                # outer_of_inner or something like that because I want
+                # mean_x.* to appear next to each other in the
+                # alphabetical list, as these are commonly plotted
+                # together
+                for key, val in [('max_x.max_u', v_max.max()),
+                                 ('max_x.mean_u', v_max.mean()),
+                                 ('max_x.min_u', v_max.min()),
+                                 ('min_x.max_u', v_min.max()),
+                                 ('min_x.mean_u', v_min.mean()),
+                                 ('min_x.min_u', v_min.min()),
+                                 ('range_x.max_u', v_range.max()),
+                                 ('range_x.mean_u', v_range.mean()),
+                                 ('range_x.min_u', v_range.min()),
+                                 ('mean_x.max_u', v_mean.max()),
+                                 ('mean_x.mean_u', v_mean.mean()),
+                                 ('mean_x.min_u', v_mean.min())]:
+                    rval[prefix + key] = val
 
         return rval
-
 
     @wraps(Layer.fprop)
     def fprop(self, state_below):
@@ -495,32 +483,26 @@ class CorrMMElemwise(Layer):
             d.name = self.layer_name + '_z'
             self.detector_space.validate(d)
 
-        if self.pool_type is not None:
+        if self.pool_type is not None and self.pool_shape != [1, 1]:
             # Format the input to be supported by max pooling
-
-
             if not hasattr(self, 'detector_normalization'):
                 self.detector_normalization = None
-
             if self.detector_normalization:
                 d = self.detector_normalization(d)
-
             assert self.pool_type in ['max', 'mean'], ("pool_type should be"
                                                       "either max or mean"
-                                                      "pooling.")
-
+                                                       "pooling.")
             if self.pool_type == 'max':
                 p = downsample.max_pool_2d(d, self.pool_shape,
-                                                ignore_border=False)
+                                           ignore_border=False)
 
                 #p = max_pool(bc01=d, pool_shape=self.pool_shape,
                 #        pool_stride=self.pool_stride,
                 #        image_shape=self.detector_space.shape)
             elif self.pool_type == 'mean':
                 p = mean_pool(bc01=d, pool_shape=self.pool_shape,
-                        pool_stride=self.pool_stride,
-                        image_shape=self.detector_space.shape)
-
+                              pool_stride=self.pool_stride,
+                              image_shape=self.detector_space.shape)
                 #self.output_space.validate(p)
         else:
             p = d
