@@ -20,168 +20,145 @@ from pylearn2.utils.string_utils import preprocess
 from pylearn2.space import VectorSpace, CompositeSpace
 from math import sqrt
 
+import os.path
+
 
 class faceDataset(dataset.Dataset):
 
-    mapper = {'train': 0, 'valid': 1}
-
     def __init__(self,
-                 positive_samples,
-                 negative_samples,
+                 positive_files,
+                 negative_files,
                  which_set,
                  ratio=0.8,
-                 inactive_examples=None,
                  batch_size=128,
-                 axes=('c', 0, 1, 'b')):
+                 ## Unhandled for now
+                 axes=('b', 0, 1, 'c')):
         """
         Instantiates a handle to the face dataset
         -----------------------------------------
         positive_samples : path to the npy file of + samples
         negative_samples : path to the npy file of - samples
         The current ratio is 0.8 => train 80%, valid 20%
+
+        WARNING: Data must be square image in RGB
         """
-        self.positives = np.load(positive_samples)
-        self.negatives = np.load(negative_samples)
-        self.inactives = np.zeros(self.negatives.shape)
-        # This will be used as a mask
 
-        # Remove negative example already discarded by previous layer in
-        # the cascade
-        if inactive_examples is not None:
-            # Numpy.delete creates a copy of the iarray, not possible here.
-            # We just set up a mask
-            inactives_ = np.load(inactive_examples)
-            self.inactives[inactives_, :] = 1
+        self.__dict__.update(locals())
 
-        self.negatives = ma.array(data=self.negatives,
-                                  mask=self.inactives)
+        self.positives = []
+        self.negatives = []
 
+        assert len(positive_files) == len(negative_files)
+        self.load(positive_files, self.positives)
+        self.load(negative_files, self.negatives)
+
+        ### Assert that all loaded data have the same number of samples
+        assert len(self.positives) > 0
+        nb_pos = self.positives[0].shape[0]
+        for i in xrange(1, len(self.positives)):
+            assert self.positives[i].shape[0] == nb_ex
+        assert len(self.negatives) > 0
+        nb_neg = self.negatives[0].shape[0]
+        for i in xrange(1, len(self.negatives)):
+            assert self.negatives[i].shape[0] == nb_ex
+
+        ### Compute img_shape, assuming square images in RGB
+        self.img_shape = []
+        for i in xrange(0, len(self.positives)):
+            size = int(sqrt(self.positives[0].shape[1] / 3))
+            cur_img_shape = [size, size, 3]
+            self.img_shape.append(cur_img_shape)
+
+
+        ### Split the set into a train/valid set
+        nb_train_pos = int(np.ceil(ratio * nb_pos))
+        nb_test_pos  = int(np.ceil(ratio * nb_neg))
         if which_set == 'train':
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
-            self.positives = self.positives[0:nb_train, :]
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
-            self.negatives = self.negatives[0:nb_train, :]
-
+            self.pos_idx = 0, nb_train_pos
+            self.neg_idx = 0, nb_train_neg
         elif which_set == 'valid':
-            nb_train = int(np.ceil(ratio * self.positives.shape[0]))
-            self.positives = self.positives[nb_train:self.positives.shape[0], :]
-            nb_train = int(np.ceil(ratio * self.negatives.shape[0]))
-            self.negatives = self.negatives[nb_train:self.negatives.shape[0], :]
+            self.pos_idx = nb_train_pos, nb_pos
+            self.neg_idx = nb_train_neg, nb_neg
+
+        ### Make the number of max examples divisible by batch/2
+        ### for implementation issues
+        nb_pos = self.pos_idx[1] - self.pos_idx[0]
+        nb_neg = self.neg_idx[1] - self.neg_idx[0]
+        self.pos_idx[1] -= nb_pos % (batch_size/2)
+        self.neg_idx[1] -= nb_neg % (batch_size/2)
+
+        ### Print stats
+        self.nb_pos = self.pos_idx[1] - self.pos_idx[0]
+        self.nb_neg = self.neg_idx[1] - self.neg_idx[0]
+        print "Nb positive", which_set, "examples:", nb_pos
+        print "Nb negative", which_set, "examples:", nb_neg
+
+    def load_data(self, filenames, res_lst):
+        for f in filename:
+            if path.splitext(f)[1] == ".hdf":
+                data = tables.openFile(f, mode="r")
+                res_lst.append(data.getNode('/', "denseFeat"))
+            elif path.splitext(f)[1] == ".npy":
+                data = np.load(f)
+                res_lst.append(data)
+            else:
+                print "Invalid data format"
+                exit(1)
 
 
-
-        # duplicate to have  nb_pos/nb_neg divisible by batch_size/2
-        # batch_size = batch_size / 2
-        self.nb_pos = self.positives.shape[0]
-        self.nb_neg = self.negatives.shape[0]
-
-        if (self.nb_pos % batch_size != 0):
-            to_add = batch_size - self.nb_pos % batch_size
-            for k in range(0, to_add):
-                self.positives = np.append(self.positives,
-                                           self.positives[-1, :].reshape(1, self.positives.shape[1]),
-                                           axis=0)
-        if (self.nb_neg % batch_size != 0):
-            to_add = batch_size - self.nb_neg % batch_size
-            for k in range(0, to_add):
-                self.negatives = np.append(self.negatives,
-                                           self.negatives[-1, :].reshape(1, self.negatives.shape[1]),
-                                           axis=0)
-        self.nb_neg = self.negatives.shape[0]
-        ### For test purpose
-        self.positives = self.positives[0:self.nb_neg]
-        self.nb_pos = self.positives.shape[0]
-        # Compute img_shape, assuming square images in RGB
-        size = int(sqrt(self.positives[0].shape[0] / 3))
-        self.img_shape = [size, size, 3]
-        print "image shape :",self.img_shape
-        self.nb_examples = self.positives.shape[0] + self.negatives.shape[0]
-        self.which_set = which_set
-        self.axes = axes
-        print "positives: ", self.positives.shape, positive_samples
-        print "negatives: ", self.negatives.shape, negative_samples
-
-
-    def get_minibatch(self, cur_positives, cur_negatives,
-                      minibatch_size,
+    def get_minibatch(self,
+                      pos_id,
+                      neg_id,
+                      batch_size,
                       data_specs, return_tuple):
 
+        assert batch_size % 2 == 0
+        ### Negative/Positive batch split
+        split = batch_size / 2
 
+        x = []
+        for i in len(self.positives):
+            x_cur = np.zeros([batch_size, self.positives[i].shape[1]],
+                             dtype="float32")
+            ### Fetch positives
+            idx = self.pos_idx[0] + split * pos_id
+            x_cur[0:split, :] = self.positives[i][idx, idx+split * pos_id, :]
+            ### Fetch negatives
+            idx = self.neg_idx[0] + split * neg_id
+            x_cur[split:batch_size, :] = self.negatives[i][idx, idx+split * neg_id, :]
+            ### Resize into b, 0, 1, c
+            x_cur = np.reshape(x_cur, [minibatch_size] + self.img_shape)
+            for j in xrange(0, nb_pos):
+                cv2.imshow("positif " + str(j),
+                           np.asarray(x_cur[j], dtype=np.uint8))
+            for j in xrange(nb_pos, x.shape[0]):
+                cv2.imshow("negatif " + str(j),
+                           np.asarray(x_cur, dtype=np.uint8))
+            cv2.waitKey(0)
+            ### Transform into b c 0 1 FIXME handle other axes
+            x_cur = np.transpose(x_cur, (0, 3, 1, 2))
+            x.append(x_cur)
+
+        ### Fetch labels
         ### Initialize data
-        x = np.zeros([minibatch_size, self.positives.shape[1]],
-                     dtype = "float32")
-        y = np.zeros([minibatch_size, 2],
-                     dtype="float32")
+        y = np.zeros([batch_size, 2], dtype="float32")
+        y[0:split, 0] = 1
+        y[split:batch_size, 1] = 1
 
-        ### Get number of positives and negatives examples
-        #nb_pos = int(0.5 * minibatch_size)
-        nb_pos = int(np.random.rand() * minibatch_size)
-        #print nb_pos,
-        nb_neg = minibatch_size - nb_pos
-
-        ### nb_examples must be divisible by minibatch_size
-        if (cur_negatives + nb_neg >= self.negatives.shape[0]):
-            nb_neg = self.negatives.shape[0] - cur_negatives
-            nb_pos =  minibatch_size - nb_neg
-        if (cur_positives + nb_pos >= self.positives.shape[0]):
-            nb_pos = self.positives.shape[0] - cur_positives
-            nb_neg =  minibatch_size - nb_pos
-
-        ### Fill minibatch
-        #print "cur_positives, nb_pos, cur_negatives,nb_neg"
-        #print cur_positives, nb_pos, cur_negatives,nb_neg
-        x[0:nb_pos, :] = self.positives[cur_positives:cur_positives+nb_pos, :]
-        y[0:nb_pos, 0] = 1
-        # We need to access only the good ones
-        size = self.negatives.shape[1]
-        length = self.negatives.count(axis=0)[0]
-        x[nb_pos:nb_pos+nb_neg, :] =\
-        np.reshape(self.negatives.compressed(), (length, size) )[cur_negatives:cur_negatives + nb_neg, :]
-        y[nb_pos:nb_pos+nb_neg, 1] = 1
-
-        x = np.reshape(x, [minibatch_size] + self.img_shape)
-        #print x[0].shape
-        #cv2.imshow("positif",np.asarray(x[0],dtype=np.uint8))
-        #cv2.imshow("negatif",np.asarray(x[nb_pos],dtype=np.uint8))
-        #cv2.waitKey(0)
-        x = np.swapaxes(x, 0, 3)
-        cur_positives += nb_pos
-        cur_negatives += nb_neg
-        ### Displaying pictures to check that pos!=neg
-        return (x, y), cur_positives, cur_negatives
+        #print "return batch", cur_negatives, cur_negatives
+        if data_specs == None or len(data_specs[1]) > 1:
+	  return (tuple(x), y)
+	else:
+	  return (tuple(x),)
 
 
-    def get_negseqs_minibatch(self, cur, minibatch_size,
-                              data_specs, return_tuple):
-        ### Initialize data
-        x = np.zeros([minibatch_size, self.positives.shape[1]],
-                     dtype = "float32")
-        y = np.zeros([minibatch_size, 2],
-                     dtype="float32")
-        x[0:minibatch_size, :] = self.negatives[cur*minibatch_size:(cur + 1) * minibatch_size, :]
-        x = np.reshape(x, [minibatch_size] + self.img_shape)
-        x = np.swapaxes(x, 3, 0)
-        y[0:minibatch_size, 1] = 1
-        assert y[0,0] ==0
-        return (x, y)
-
-
-
-
-
-    def iterator(self, mode=None, batch_size=None, num_batches=None, topo=None,
+    def iterator(self, mode=None,
+                 batch_size=None, num_batches=None, topo=None,
                  targets=False, data_specs=None, return_tuple=False, rng=None):
 
-        if mode == 'negative_seq':
-            print '*'*30
-            print "Returning only negatives"
-            print '*'*30
-            return FaceIteratorNegSeq(self,
-                                      batch_size, num_batches,
-                                      data_specs, return_tuple, rng)
-        # Otherwise return a normal iterator
-        return FaceIterator(self, batch_size, num_batches,
-                                  data_specs, return_tuple, rng)
+        ### Do the delim here
+        return FaceIterator_cascade(self, batch_size, num_batches,
+                                    data_specs, return_tuple, rng)
 
     def has_targets(self):
         return True
@@ -200,38 +177,25 @@ class faceDataset(dataset.Dataset):
         return self.nb_pos + self.nb_neg
 
 
-def load_list(filename):
-    id_list = []
-    with open(filename, 'r') as fd:
-        for line in fd:
-            id_list.append(line)
-    return id_list
 
+class FaceIterator_cascade:
 
-class FaceIterator:
-
-    def __init__(self, dataset=None, batch_size=None, num_batches=None,
+    def __init__(self, dataset,
+                 batch_size,
+                 num_batches=None,
                  data_specs=False, return_tuple=False, rng=None):
 
         self._dataset = dataset
-        self._dataset_size = dataset.nb_examples
+        self._dataset_size = dataset.get_num_examples()
+
+        assert batch_size is not None
 
         # Validate the inputs
         assert dataset is not None
-        if batch_size is None and num_batches is None:
-            raise ValueError("Provide at least one of batch_size or num_batches")
         if batch_size is None:
-            batch_size = int(np.ceil(self._dataset_size / float(num_batches)))
-        if num_batches is None:
-            num_batches = np.ceil(self._dataset_size / float(batch_size))
-
-        max_num_batches = np.ceil(self._dataset_size / float(batch_size))
-        if num_batches > max_num_batches:
-            raise ValueError("dataset of %d examples can only provide "
-                             "%d batches with batch_size %d, but %d "
-                             "batches were requested" %
-                             (self._dataset_size, max_num_batches,
-                              batch_size, num_batches))
+            raise ValueError("FaceIterator_cascade require batch_size")
+        if batch_size % 2 != 0:
+            raise ValueError("batch_size must be divisible by two")
 
         if rng is None:
             self._rng = random.Random(1)
@@ -239,17 +203,15 @@ class FaceIterator:
             self._rng = rng
 
         self._batch_size = batch_size
-        self._num_batches = int(num_batches)
+        self._pos_num = self._dataset.nb_pos / (batch_size / 2)
+        self._neg_num = self._dataset.nb_neg / (batch_size / 2)
+        self._stop_pos = self._pos_num >= self._neg_num
+
         self._cur_pos = 0
         self._cur_neg = 0
-        self.stochastic = False
-
-        self._num_pos = self._dataset.positives.shape[0]
-        self._num_neg = self._dataset.negatives.shape[0]
 
         self._return_tuple = return_tuple
         self._data_specs = data_specs
-
         self.num_examples = self._dataset_size # Needed by Dataset interface
         print self.num_examples
 
@@ -258,132 +220,31 @@ class FaceIterator:
         return self
 
     def next(self):
-        if self._cur_pos >= self._num_pos and self._cur_neg >= self._num_neg:
-            print "stopIteration :"
-            print self.num_examples
-            print self._num_batches
-            raise StopIteration()
-        else:
-            data, self._cur_pos, self._cur_neg = \
-                self._dataset.get_minibatch(self._cur_pos, self._cur_neg,
-                                            self._batch_size, self._data_specs,
-                                            self._return_tuple)
-            return data
+        if self._cur_pos >= self._num_pos:
+            if self._stop_pos:
+                print "stopIteration :"
+                print self.num_examples
+                print self._num_batches
+                raise StopIteration()
+            else:
+                self._cur_pos = 0
+        if self._cur_neg >= self._num_neg:
+            if not self._stop_pos:
+                print "stopIteration :"
+                print self.num_examples
+                print self._num_batches
+                raise StopIteration()
+            else:
+                self._cur_neg = 0
 
+        data = self._dataset.get_minibatch(self._cur_pos,
+                                           self._cur_neg,
+                                           self._batch_size,
+                                           self._data_specs,
+                                           self._return_tuple)
+        self._cur_pos += 1
+        self._cur_neg += 1
+        return data
 
-
-class FaceIteratorNegSeq:
-
-    def __init__(self, dataset=None, batch_size=None, num_batches=None,
-                 data_specs=False, return_tuple=False, rng=None):
-
-        self._dataset = dataset
-        self._dataset_size = dataset.negatives.shape[0]
-
-        # Validate the inputs
-        assert dataset is not None
-        if batch_size is None and num_batches is None:
-            raise ValueError("Provide at least one of batch_size or num_batches")
-        if batch_size is None:
-            batch_size = int(np.ceil(self._dataset_size / float(num_batches)))
-        if num_batches is None:
-            num_batches = np.ceil(self._dataset_size / float(batch_size))
-
-        max_num_batches = np.ceil(self._dataset_size / float(batch_size))
-        if num_batches > max_num_batches:
-            raise ValueError("dataset of %d examples can only provide "
-                             "%d batches with batch_size %d, but %d "
-                             "batches were requested" %
-                             (self._dataset_size, max_num_batches,
-                              batch_size, num_batches))
-
-        self._batch_size = batch_size
-        self._num_batches = int(num_batches)
-        self._cur = 0
-        self.stochastic = False
-        self._return_tuple = return_tuple
-        self._data_specs = data_specs
-
-        self.num_examples = self._dataset_size # Needed by Dataset interface
-        #print self.num_examples
-
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self._cur == self._num_batches:
-            raise StopIteration()
-        else:
-            data = self._dataset.get_negseqs_minibatch(self._cur,
-                                                      self._batch_size,
-                                                      self._data_specs,
-                                                      self._return_tuple)
-            self._cur += 1
-            return data
-
-
-if __name__=="__main__":
-    # pos = "/data/lisatmp3/ballasn/facedet/positives.npy"
-    # neg = "/data/lisatmp3/ballasn/facedet/negatives.npy"
-    pos = "/data/lisatmp3/chassang/facedet/16/pos16_100_eq.npy"
-    neg = "/data/lisatmp3/chassang/facedet/16/neg16_100_eq.npy"
-    print "instantiating datasets"
-    fd_train = faceDataset(pos,neg,"train")
-    fd_test = faceDataset(pos,neg,"valid")
-    print "Done, now the iterator"
-    print type(fd_train)
-    print type(fd_test)
-    fi_train = fd_train.iterator(dataset=fd_train, batch_size=128)
-    print fi_train
-    fi_test = fd_test.iterator(dataset=fd_test, batch_size=128, mode="negative_seq")
-    print fi_test
-    b_train = fi_train.next()
-    b_test = fi_test.next()
-    print "batch shapes"
-    print b_train[0].shape
-    print b_train[1].shape
-    x_train, y_train =  b_train[0], b_train[1]
-    x_test, y_test = b_test[0], b_test[1]
-    print "example shapes"
-    print x_train.shape
-    print y_train.shape
-    print y_train.sum(axis=0)
-    print x_test.shape
-    print y_test.shape
-    print y_test.sum(axis=0)
-
-    #for i,(e,f) in enumerate(zip(y_train,y_test)):
-            #print e,f
-
-    x_test = np.swapaxes(x_test,0,3)
-    x_train = np.swapaxes(x_train,0,3)
-    print x_test.shape
-    print x_train.shape
-
-    for j in xrange(10):
-        print "-"*10
-        print j
-        print "-"*10
-        for i,(e,f) in enumerate(zip(x_train,x_test)):
-            if np.array_equal(e,f):
-                print i
-    b_train = fi_train.next()
-    b_test = fi_test.next()
-    x_train, y_train =  b_train[0], b_train[1]
-    x_test, y_test = b_test[0], b_test[1]
-    x_test = np.swapaxes(x_test,0,3)
-    x_train = np.swapaxes(x_train,0,3)
-    print "."
-
-
-
-
-    # print "next()"
-    # fi.next()
-    # print "next()"
-    # fi.next()
-    # print "next()"
-    # fi.next()
 
 
