@@ -512,12 +512,12 @@ class CudNNElemwise(Layer):
                                                       "pooling.")
 
             if self.pool_type == 'max':
-                p = downsample.max_pool_2d(d, self.pool_shape,
-                                           ignore_border=False)
+                #p = downsample.max_pool_2d(d, self.pool_shape,
+                #                           ignore_border=False)
 
-                #p = max_pool(bc01=d, pool_shape=self.pool_shape,
-                #        pool_stride=self.pool_stride,
-                #        image_shape=self.detector_space.shape)
+                p = max_pool(bc01=d, pool_shape=self.pool_shape,
+                             pool_stride=self.pool_stride,
+                             image_shape=self.detector_space.shape)
             elif self.pool_type == 'mean':
                 p = mean_pool(bc01=d, pool_shape=self.pool_shape,
                         pool_stride=self.pool_stride,
